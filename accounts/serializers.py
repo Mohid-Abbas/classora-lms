@@ -1,0 +1,125 @@
+import secrets
+import string
+
+from django.contrib.auth import authenticate
+from django.db import transaction
+from rest_framework import serializers
+
+from .models import CustomUser, Institute
+
+
+class InstituteRegisterSerializer(serializers.Serializer):
+    # Incoming payload for institute + admin creation.
+    institute_name = serializers.CharField(max_length=255, allow_blank=False, trim_whitespace=True)
+    admin_name = serializers.CharField(max_length=255, allow_blank=False, trim_whitespace=True)
+    admin_email = serializers.EmailField()
+    password = serializers.CharField(write_only=True, min_length=6, trim_whitespace=False)
+
+    def validate_admin_email(self, value: str) -> str:
+        if CustomUser.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+    def _generate_unique_institute_code(self, length: int = 10) -> str:
+        alphabet = string.ascii_uppercase + string.digits
+        for _ in range(20):
+            code = "".join(secrets.choice(alphabet) for _ in range(length))
+            if not Institute.objects.filter(institute_code=code).exists():
+                return code
+        raise serializers.ValidationError("Could not generate a unique institute code. Please retry.")
+
+    @transaction.atomic
+    def create(self, validated_data):
+        institute = Institute.objects.create(
+            name=validated_data["institute_name"],
+            institute_code=self._generate_unique_institute_code(),
+        )
+
+        admin_user = CustomUser.objects.create_user(
+            email=validated_data["admin_email"],
+            full_name=validated_data["admin_name"],
+            password=validated_data["password"],
+            role=CustomUser.Role.ADMIN,
+            institute=institute,
+            is_active=True,
+        )
+
+        return {"institute": institute, "admin_user": admin_user}
+
+
+class LoginSerializer(serializers.Serializer):
+    # Basic email/password login payload.
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        email = attrs.get("email")
+        password = attrs.get("password")
+
+        if not email or not password:
+            raise serializers.ValidationError("Both email and password are required.")
+
+        # Use Django's auth system with CustomUser.USERNAME_FIELD = 'email'.
+        user = authenticate(
+            request=self.context.get("request"),
+            email=email,
+            password=password,
+        )
+
+        if user is None:
+            raise serializers.ValidationError("Invalid credentials or inactive account.")
+
+        attrs["user"] = user
+        return attrs
+
+
+class InstituteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Institute
+        fields = ("id", "name", "institute_code", "created_at")
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ("id", "full_name", "email", "role", "institute_id")
+
+
+class CreateUserSerializer(serializers.Serializer):
+    full_name = serializers.CharField(max_length=255)
+    email = serializers.EmailField()
+    role = serializers.ChoiceField(choices=CustomUser.Role.choices)
+    password = serializers.CharField(write_only=True, min_length=6, trim_whitespace=False)
+    institute_id = serializers.IntegerField()
+
+    def validate_email(self, value: str) -> str:
+        if CustomUser.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            raise serializers.ValidationError("Authentication is required.")
+        if user.institute_id is None:
+            raise serializers.ValidationError("Admin is not attached to an institute.")
+
+        # Ensure admins can only manage users in their own institute.
+        if attrs.get("institute_id") != user.institute_id:
+            raise serializers.ValidationError("You can only create users in your own institute.")
+
+        return attrs
+
+    def create(self, validated_data):
+        request = self.context["request"]
+        institute = request.user.institute
+
+        return CustomUser.objects.create_user(
+            email=validated_data["email"],
+            full_name=validated_data["full_name"],
+            password=validated_data["password"],
+            role=validated_data["role"],
+            institute=institute,
+            is_active=True,
+        )
