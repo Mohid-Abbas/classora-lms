@@ -1,17 +1,44 @@
+# --- Python / Virtual Environments ---
 venv/
+env/
+.venv/
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.log
-.DS_Store
-.env
-.env.*
+*.py[cod]
+*$py.class
+*.so
+.Python
 
+# --- Django Specific ---
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+*.log
+
+# --- Frontend / Node.js ---
 frontend/node_modules/
 frontend/dist/
+frontend/build/
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-.cursor/
+# --- Environment & Secrets ---
+.env
+.env.*
+.flaskenv
+*.secret
+
+# --- IDE & Editors ---
 .vscode/
 .idea/
+.cursor/
+*.swp
+*.bak
+*.tmp
+.DS_Store
+Thumbs.db
 
+# --- Large/Internal Documentation ---
+lookup.md
