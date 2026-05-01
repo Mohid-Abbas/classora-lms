@@ -20,6 +20,7 @@ export default function AnnouncementsPage() {
     const [selectedImage, setSelectedImage] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [commentTexts, setCommentTexts] = useState({}); // { announcementId: text }
+    const [editingComment, setEditingComment] = useState(null); // { id, content }
 
     useEffect(() => {
         fetchData();
@@ -29,7 +30,7 @@ export default function AnnouncementsPage() {
         try {
             const [annRes, crsRes, deptRes] = await Promise.all([
                 apiClient.get("/api/lms/announcements/"),
-                user.role !== "STUDENT" ? apiClient.get("/api/lms/courses/") : Promise.resolve({ data: [] }),
+                apiClient.get("/api/lms/courses/"),
                 user.role === "ADMIN" ? apiClient.get("/api/lms/departments/") : Promise.resolve({ data: [] })
             ]);
             setAnnouncements(Array.isArray(annRes.data) ? annRes.data : (annRes.data.results || []));
@@ -111,7 +112,30 @@ export default function AnnouncementsPage() {
             await apiClient.delete(`/api/lms/announcement-comments/${id}/`);
             fetchData();
         } catch(err) {
-            alert("Failed to delete comment.");
+            const msg = err.response?.data?.detail || "Failed to delete comment.";
+            alert(msg);
+        }
+    };
+
+    const startEditComment = (cmt) => {
+        setEditingComment({ id: cmt.id, content: cmt.content });
+    };
+
+    const cancelEditComment = () => {
+        setEditingComment(null);
+    };
+
+    const updateComment = async () => {
+        if (!editingComment || !editingComment.content.trim()) return;
+        try {
+            await apiClient.patch(`/api/lms/announcement-comments/${editingComment.id}/`, {
+                content: editingComment.content
+            });
+            setEditingComment(null);
+            fetchData();
+        } catch(err) {
+            const msg = err.response?.data?.detail || "Failed to update comment.";
+            alert(msg);
         }
     };
 
@@ -124,8 +148,8 @@ export default function AnnouncementsPage() {
                 </div>
 
                 <div className="ann-layout">
-                    {/* LEFT PANEL: Creation Form (Only Admin & Teacher) */}
-                    {user.role !== "STUDENT" && (
+                    {/* LEFT PANEL: Creation Form */}
+                    {(user.role !== "STUDENT" || courses.length > 0) && (
                         <div className="ann-create-panel">
                             <h3 className="ann-panel-title">
                                 <span className="material-icons-round">campaign</span> Make an Announcement
@@ -156,12 +180,12 @@ export default function AnnouncementsPage() {
                                         </div>
                                     )}
                                     <div className="ann-form-group">
-                                        <label>Specific Class</label>
-                                        <select name="course" className="ann-input" value={formData.course} onChange={handleInputChange}>
-                                            <option value="">-- Across {(user.role === "TEACHER" ? "My Classes" : "All Classes")} --</option>
+                                        <label>{user.role === "STUDENT" ? "Select Your Course (Required)" : "Specific Class"}</label>
+                                        <select name="course" className="ann-input" value={formData.course} onChange={handleInputChange} required={user.role === "STUDENT"}>
+                                            <option value="">{user.role === "STUDENT" ? "-- Select Your Course --" : `-- Across ${user.role === "TEACHER" ? "My Classes" : "All Classes"} --`}</option>
                                             {courses
                                                 .filter(c => !formData.department || c.department === parseInt(formData.department))
-                                                .map(c => <option key={c.id} value={c.id}>{c.code}: {c.name}</option>)
+                                                .map(c => <option key={c.id} value={c.id}>{c.code}: {c.name} (Sec {c.section || 'A'})</option>)
                                             }
                                         </select>
                                     </div>
@@ -267,18 +291,52 @@ export default function AnnouncementsPage() {
                                                     <div className="ann-comment-avatar">
                                                         <span className="material-icons-round" style={{ fontSize: 16 }}>account_circle</span>
                                                     </div>
-                                                    <div className="ann-comment-body">
+                                                    <div className="ann-comment-body" style={{ position: 'relative' }}>
                                                         <div className="ann-comment-author">
                                                             {cmt.user_name} <span style={{ opacity: 0.6, fontSize: '0.75rem' }}>· {cmt.user_role}</span>
                                                         </div>
-                                                        <div className="ann-comment-text">{cmt.content}</div>
-                                                        {(user.role === 'ADMIN' || user.id === cmt.user) && (
-                                                            <button
-                                                                style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', color: '#f44336', cursor: 'pointer', opacity: 0.4 }}
-                                                                onClick={() => deleteComment(cmt.id)}
-                                                            >
-                                                                <span className="material-icons-round" style={{ fontSize: 14 }}>close</span>
-                                                            </button>
+                                                        
+                                                        {editingComment && editingComment.id === cmt.id ? (
+                                                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                                                <input
+                                                                    type="text"
+                                                                    value={editingComment.content}
+                                                                    onChange={e => setEditingComment({ ...editingComment, content: e.target.value })}
+                                                                    onKeyDown={e => {
+                                                                        if (e.key === 'Enter') updateComment();
+                                                                        if (e.key === 'Escape') cancelEditComment();
+                                                                    }}
+                                                                    style={{ flex: 1, padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                                                                    autoFocus
+                                                                />
+                                                                <button onClick={updateComment} style={{ padding: '4px 8px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                                    <span className="material-icons-round" style={{ fontSize: 16 }}>check</span>
+                                                                </button>
+                                                                <button onClick={cancelEditComment} style={{ padding: '4px 8px', background: '#e2e8f0', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                                    <span className="material-icons-round" style={{ fontSize: 16 }}>close</span>
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="ann-comment-text">{cmt.content}</div>
+                                                        )}
+                                                        
+                                                        {(user.role === 'ADMIN' || user.id === cmt.user) && !editingComment && (
+                                                            <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: '8px' }}>
+                                                                <button
+                                                                    style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', opacity: 0.6, padding: '2px' }}
+                                                                    onClick={() => startEditComment(cmt)}
+                                                                    title="Edit comment"
+                                                                >
+                                                                    <span className="material-icons-round" style={{ fontSize: 16 }}>edit</span>
+                                                                </button>
+                                                                <button
+                                                                    style={{ background: 'none', border: 'none', color: '#f44336', cursor: 'pointer', opacity: 0.6, padding: '2px' }}
+                                                                    onClick={() => deleteComment(cmt.id)}
+                                                                    title="Delete comment"
+                                                                >
+                                                                    <span className="material-icons-round" style={{ fontSize: 16 }}>delete_outline</span>
+                                                                </button>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </div>
