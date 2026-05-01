@@ -105,46 +105,145 @@
 
 /* ─── Stream Layout ─── */
 .cs-stream-layout {
-    display: grid;
-    grid-template-columns: 280px 1fr;
+    display: flex;
+    flex-direction: column;
     min-height: 100vh;
 }
 
-/* Sidebar */
-.cs-sidebar {
-    background: rgba(255,255,255,0.7);
-    backdrop-filter: blur(20px);
-    border-right: 1px solid #e2e8f0;
-    padding: 24px 16px;
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    overflow-y: auto;
-}
-
-.cs-sidebar-item {
+/* Horizontal Course Tabs */
+.cs-course-tabs {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 12px 14px;
-    border-radius: 16px;
+    gap: 16px;
+    padding: 16px 24px;
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.cs-course-tabs::-webkit-scrollbar {
+    height: 6px;
+}
+
+.cs-course-tabs::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.cs-course-tabs::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.cs-tabs-divider {
+    width: 1px;
+    height: 32px;
+    background: #e2e8f0;
+    flex-shrink: 0;
+}
+
+.cs-tabs-list {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+    overflow-x: auto;
+}
+
+.cs-tab-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
     cursor: pointer;
     transition: all 0.2s ease;
-    margin-bottom: 6px;
+    background: #f8fafc;
+    border: 2px solid transparent;
+    border-left-width: 4px;
+    flex-shrink: 0;
+    min-width: 180px;
 }
-.cs-sidebar-item:hover  { background: #f1f5f9; transform: translateX(4px); }
-.cs-sidebar-item.active { background: #f5f3ff; box-shadow: inset 2px 0 0 #8b5cf6; }
 
-.cs-sidebar-dot {
-    width: 40px; height: 40px;
-    border-radius: 12px; flex-shrink: 0;
+.cs-tab-bar:hover {
+    background: #f1f5f9;
+    transform: translateY(-1px);
+}
+
+.cs-tab-bar.active {
+    background: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.cs-tab-color {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    flex-shrink: 0;
     box-shadow: inset 0 2px 4px rgba(255,255,255,0.4);
 }
-.cs-sidebar-name { font-weight: 800; color: #0f172a; font-size: 0.9rem; }
-.cs-sidebar-code { font-size: 0.75rem; color: #64748b; font-weight: 500; }
+
+.cs-tab-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.cs-tab-name {
+    font-weight: 700;
+    color: #1e293b;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cs-tab-code {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.cs-tab-badge {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.cs-tab-badge .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.cs-tab-badge .dot.amber { background: #f59e0b; }
+.cs-tab-badge .dot.purple { background: #8b5cf6; }
+
+.cs-back-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f1f5f9;
+    color: #475569;
+    border: none;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 10px 18px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.cs-back-btn:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.cs-back-btn .material-icons-round { font-size: 18px; }
 
 /* Main stream area */
-.cs-main { background: #f8fafc; }
+.cs-main { background: #f8fafc; flex: 1; }
 
 /* Premium Hero banner */
 .cs-hero {
@@ -171,16 +270,6 @@
     position: absolute; right: 60px; top: 50%; transform: translateY(-50%) rotate(-10deg); 
     font-size: 120px; color: rgba(255,255,255,0.1); z-index: 1; 
 }
-
-.cs-back-btn {
-    position: absolute; top: 20px; left: 24px; z-index: 10;
-    display: flex; align-items: center; gap: 6px;
-    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
-    color: white; font-weight: 700; font-size: 0.85rem;
-    padding: 8px 16px; border-radius: 20px; cursor: pointer;
-    backdrop-filter: blur(8px); transition: all 0.2s ease;
-}
-.cs-back-btn:hover { background: rgba(255,255,255,0.25); transform: translateX(-2px); }
 
 /* Stream body */
 .cs-stream-body {
@@ -347,10 +436,41 @@
 
 /* Responsive */
 @media (max-width: 1024px) {
-    .cs-stream-layout { grid-template-columns: 1fr; }
-    .cs-sidebar { display: none; }
+    .cs-course-tabs {
+        padding: 12px 16px;
+    }
+    
+    .cs-tabs-list {
+        gap: 8px;
+    }
+    
+    .cs-tab-bar {
+        min-width: 150px;
+        padding: 10px 12px;
+    }
+    
     .cs-stream-body { grid-template-columns: 1fr; }
     .cs-upcoming-widget { position: static; }
+}
+
+@media (max-width: 640px) {
+    .cs-course-tabs {
+        flex-wrap: wrap;
+    }
+    
+    .cs-tabs-divider {
+        display: none;
+    }
+    
+    .cs-back-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .cs-tabs-list {
+        width: 100%;
+        order: -1;
+    }
 }
 @media (max-width: 600px) {
     .cs-grid { grid-template-columns: 1fr; padding: 12px 24px 40px; }
