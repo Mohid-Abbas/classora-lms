@@ -42,29 +42,50 @@ export default function TeacherAttendancePage() {
 
     const fetchCourseData = async () => {
         setLoading(true);
+        setMessage({ type: "", text: "" });
+        
+        let loadedStudents = [];
+        let hasError = false;
+        let errorMsg = "";
+        
         try {
             // Get all students first
+            console.log("Fetching students for institute:", user.institute_id);
             const studentsRes = await apiClient.get(`/api/users/?role=STUDENT&institute=${user.institute_id}`);
+            console.log("Students response:", studentsRes.data);
+            
             const allStudents = Array.isArray(studentsRes.data) ? studentsRes.data : (studentsRes.data.results || []);
+            console.log("All students count:", allStudents.length);
             
             let enrolledStudents = [];
             
-            // Try to get course details, but fallback to all students if it fails
+            // Try to get course details
             try {
+                console.log("Fetching course details for:", selectedCourse);
                 const courseRes = await apiClient.get(`/api/lms/courses/${selectedCourse}/`);
+                console.log("Course response:", courseRes.data);
+                
                 const course = courseRes.data;
-                // Check different possible field names for enrolled students
                 const enrolledIds = course.enrolled_students || course.students || course.student_ids || [];
-                enrolledStudents = allStudents.filter(s => enrolledIds.includes(s.id));
+                console.log("Enrolled IDs:", enrolledIds);
+                
+                if (enrolledIds.length > 0) {
+                    enrolledStudents = allStudents.filter(s => enrolledIds.includes(s.id));
+                } else {
+                    // No enrolled students in course, show empty
+                    enrolledStudents = [];
+                }
             } catch (courseErr) {
-                console.log("Course detail endpoint failed, using all students", courseErr);
-                // Fallback: use all students (filter by those who have submissions or just show all)
+                console.log("Course detail failed, using all students:", courseErr.message);
+                // Fallback: show all students
                 enrolledStudents = allStudents;
             }
             
+            console.log("Final enrolled students:", enrolledStudents.length);
+            loadedStudents = enrolledStudents;
             setStudents(enrolledStudents);
             
-            // Check for existing attendance record for this date
+            // Check for existing attendance
             const init = {};
             try {
                 const attendanceRes = await apiClient.get(`/api/lms/attendance/?course=${selectedCourse}&date=${date}`);
@@ -72,7 +93,6 @@ export default function TeacherAttendancePage() {
                 
                 if (records.length > 0) {
                     setExistingRecord(records[0]);
-                    // Populate from existing record
                     records[0].entries?.forEach(entry => {
                         init[entry.student] = { 
                             status: entry.status || 'PRESENT', 
@@ -83,11 +103,11 @@ export default function TeacherAttendancePage() {
                     setExistingRecord(null);
                 }
             } catch (attErr) {
-                console.log("Attendance fetch failed (may not exist yet)", attErr);
+                console.log("Attendance fetch failed:", attErr.message);
                 setExistingRecord(null);
             }
             
-            // Set default for students not in existing record
+            // Set default attendance for all students
             enrolledStudents.forEach(s => {
                 if (!init[s.id]) {
                     init[s.id] = { status: 'PRESENT', remarks: '' };
@@ -95,11 +115,22 @@ export default function TeacherAttendancePage() {
             });
             
             setAttendance(init);
+            
         } catch (err) {
-            console.error("Error fetching course data:", err);
-            setMessage({ type: "error", text: "Failed to load student data. " + (err.response?.status === 404 ? "Course details not found." : "Please try again.") });
+            console.error("Main error:", err);
+            hasError = true;
+            errorMsg = err.response?.data?.detail || err.message || "Failed to load student data";
         } finally {
             setLoading(false);
+            // Only show error if we couldn't load any students
+            if (hasError || loadedStudents.length === 0) {
+                setMessage({ 
+                    type: "error", 
+                    text: loadedStudents.length === 0 && !hasError 
+                        ? "No students enrolled in this course" 
+                        : `Failed to load student data: ${errorMsg}` 
+                });
+            }
         }
     };
 
