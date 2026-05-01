@@ -178,20 +178,38 @@ export default function CoursesPage() {
                 ) : (
                     /* ─── Course Stream (Google Classroom style) ─── */
                     <div className="cs-stream-layout">
-                        {/* Sidebar: course list */}
-                        <div className="cs-sidebar">
-                            {courses.map((c, i) => (
-                                <div key={c.id}
-                                    className={`cs-sidebar-item ${selectedCourse?.id === c.id ? "active" : ""}`}
-                                    onClick={() => setSelectedCourse(c)}>
-                                    <div className="cs-sidebar-dot" style={{ background: BANNER_COLORS[i % BANNER_COLORS.length] }} />
-                                    <div>
-                                        <div className="cs-sidebar-name">{c.name}</div>
-                                        <div className="cs-sidebar-code">{c.code}</div>
-                                    </div>
-                                    {(() => { const p = pendingAssignments(c.id).length + upcomingQuizzes(c.id).length; return p > 0 ? <span className="cs-chip amber" style={{ marginLeft: 'auto' }}>{p}</span> : null; })()}
-                                </div>
-                            ))}
+                        {/* Horizontal Course Tabs */}
+                        <div className="cs-course-tabs">
+                            <button className="cs-back-btn" onClick={() => setSelectedCourse(null)}>
+                                <span className="material-icons-round">arrow_back</span>
+                                All Courses
+                            </button>
+                            <div className="cs-tabs-divider"></div>
+                            <div className="cs-tabs-list">
+                                {courses.map((c, i) => {
+                                    const pending = pendingAssignments(c.id).length;
+                                    const liveQuiz = upcomingQuizzes(c.id).length;
+                                    const hasActivity = pending > 0 || liveQuiz > 0;
+                                    return (
+                                        <div key={c.id}
+                                            className={`cs-tab-bar ${selectedCourse?.id === c.id ? "active" : ""}`}
+                                            style={{ borderColor: BANNER_COLORS[i % BANNER_COLORS.length] }}
+                                            onClick={() => setSelectedCourse(c)}>
+                                            <div className="cs-tab-color" style={{ background: BANNER_COLORS[i % BANNER_COLORS.length] }} />
+                                            <div className="cs-tab-info">
+                                                <span className="cs-tab-name">{c.name}</span>
+                                                <span className="cs-tab-code">{c.code}</span>
+                                            </div>
+                                            {hasActivity && (
+                                                <span className="cs-tab-badge">
+                                                    {pending > 0 && <span className="dot amber"></span>}
+                                                    {liveQuiz > 0 && <span className="dot purple"></span>}
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
 
                         {/* Main stream */}
@@ -206,10 +224,6 @@ export default function CoursesPage() {
                                             <p className="cs-hero-sub">{selectedCourse.code}{selectedCourse.semester ? ` · ${selectedCourse.semester}` : ""}</p>
                                         </div>
                                         <span className="material-icons-round cs-hero-icon">school</span>
-                                        <button className="cs-back-btn" onClick={() => setSelectedCourse(null)}>
-                                            <span className="material-icons-round">arrow_back</span>
-                                            All Courses
-                                        </button>
                                     </div>
                                 );
                             })()}
