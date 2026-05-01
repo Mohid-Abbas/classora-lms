@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import { apiClient } from "../api/client";
-import "./TeacherLMS.css";
+import "./TeacherAttendance.css";
 
 export default function TeacherAttendancePage() {
     const [user] = useState(JSON.parse(localStorage.getItem("current_user") || "{}"));
@@ -9,8 +9,10 @@ export default function TeacherAttendancePage() {
     const [students, setStudents] = useState([]);
     const [selectedCourse, setSelectedCourse] = useState("");
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [attendance, setAttendance] = useState({}); // { studentId: { status: 'PRESENT', remarks: '' } }
+    const [attendance, setAttendance] = useState({});
     const [search, setSearch] = useState("");
+    const [existingRecord, setExistingRecord] = useState(null);
+    const [loading, setLoading] = useState(false);
 
     const [submitting, setSubmitting] = useState(false);
     const [message, setMessage] = useState({ type: "", text: "" });
@@ -19,26 +21,76 @@ export default function TeacherAttendancePage() {
         apiClient.get("/api/lms/courses/")
             .then(res => {
                 const data = Array.isArray(res.data) ? res.data : (res.data.results || []);
-                setCourses(data);
+                // Filter courses where teacher is assigned
+                const myCourses = data.filter(c => 
+                    c.teachers?.includes(user.id) || c.teacher?.id === user.id
+                );
+                setCourses(myCourses);
             })
             .catch(err => console.error("Error fetching courses", err));
-    }, []);
+    }, [user.id]);
 
     useEffect(() => {
         if (selectedCourse) {
-            // Fetch students for the selected course
-            apiClient.get(`/api/users/?role=STUDENT&institute=${user.institute_id}`)
-                .then(res => {
-                    const list = Array.isArray(res.data) ? res.data : (res.data.results || []);
-                    setStudents(list);
-                    // Initialize attendance
-                    const init = {};
-                    list.forEach(s => init[s.id] = { status: 'PRESENT', remarks: '' });
-                    setAttendance(init);
-                })
-                .catch(err => console.error("Error fetching students", err));
+            fetchCourseData();
+        } else {
+            setStudents([]);
+            setAttendance({});
+            setExistingRecord(null);
         }
-    }, [selectedCourse, user.institute_id]);
+    }, [selectedCourse, date]);
+
+    const fetchCourseData = async () => {
+        setLoading(true);
+        try {
+            // Get course details to find enrolled students
+            const courseRes = await apiClient.get(`/api/lms/courses/${selectedCourse}/`);
+            const course = courseRes.data;
+            
+            // Get all students and filter by enrolled
+            const studentsRes = await apiClient.get(`/api/users/?role=STUDENT&institute=${user.institute_id}`);
+            const allStudents = Array.isArray(studentsRes.data) ? studentsRes.data : (studentsRes.data.results || []);
+            
+            // Filter to only enrolled students
+            const enrolledStudents = allStudents.filter(s => 
+                course.students?.includes(s.id)
+            );
+            
+            setStudents(enrolledStudents);
+            
+            // Check for existing attendance record for this date
+            const attendanceRes = await apiClient.get(`/api/lms/attendance/?course=${selectedCourse}&date=${date}`);
+            const records = Array.isArray(attendanceRes.data) ? attendanceRes.data : (attendanceRes.data.results || []);
+            
+            const init = {};
+            if (records.length > 0) {
+                setExistingRecord(records[0]);
+                // Populate from existing record
+                records[0].entries?.forEach(entry => {
+                    init[entry.student] = { 
+                        status: entry.status || 'PRESENT', 
+                        remarks: entry.remarks || '' 
+                    };
+                });
+            } else {
+                setExistingRecord(null);
+            }
+            
+            // Set default for students not in existing record
+            enrolledStudents.forEach(s => {
+                if (!init[s.id]) {
+                    init[s.id] = { status: 'PRESENT', remarks: '' };
+                }
+            });
+            
+            setAttendance(init);
+        } catch (err) {
+            console.error("Error fetching course data", err);
+            setMessage({ type: "error", text: "Failed to load student data" });
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleStatusChange = (studentId, status) => {
         setAttendance(prev => ({
@@ -63,19 +115,29 @@ export default function TeacherAttendancePage() {
     const handleSubmit = async () => {
         setSubmitting(true);
         try {
-            // 1. Create/Find Record
-            const recordRes = await apiClient.post("/api/lms/attendance/", {
-                course: selectedCourse,
-                date: date
-            });
+            let recordId = existingRecord?.id;
+            
+            // 1. Create record if doesn't exist
+            if (!existingRecord) {
+                const recordRes = await apiClient.post("/api/lms/attendance/", {
+                    course: selectedCourse,
+                    date: date
+                });
+                recordId = recordRes.data.id;
+            }
+            
             // 2. Mark entries
             const entries = Object.keys(attendance).map(sid => ({
                 student_id: sid,
                 status: attendance[sid].status,
                 remarks: attendance[sid].remarks
             }));
-            await apiClient.post(`/api/lms/attendance/${recordRes.data.id}/mark_attendance/`, { entries });
-            setMessage({ type: "success", text: "Attendance recorded successfully!" });
+            
+            await apiClient.post(`/api/lms/attendance/${recordId}/mark_attendance/`, { entries });
+            setMessage({ type: "success", text: existingRecord ? "Attendance updated!" : "Attendance recorded successfully!" });
+            
+            // Refresh to get updated record
+            fetchCourseData();
         } catch (err) {
             setMessage({ type: "error", text: "Failed to record attendance." });
         } finally {
@@ -83,96 +145,193 @@ export default function TeacherAttendancePage() {
         }
     };
 
-    const filteredStudents = students.filter(s => s.full_name.toLowerCase().includes(search.toLowerCase()));
+    const getAttendanceStats = () => {
+        const entries = Object.values(attendance);
+        const total = entries.length;
+        const present = entries.filter(a => a.status === 'PRESENT').length;
+        const absent = entries.filter(a => a.status === 'ABSENT').length;
+        const late = entries.filter(a => a.status === 'LATE').length;
+        return { total, present, absent, late };
+    };
+
+    const filteredStudents = students.filter(s => 
+        s.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+        s.email?.toLowerCase().includes(search.toLowerCase())
+    );
+
+    const stats = getAttendanceStats();
 
     return (
         <DashboardLayout user={user}>
-            <div className="lms-page-container" style={{ maxWidth: '1200px' }}>
-                <h2 className="section-title">MARK ATTENDANCE</h2>
-                <div className="title-divider"></div>
-
-                <div className="attendance-controls">
-                    <div className="form-group">
-                        <label>Course:</label>
-                        <div className="pill-input-wrapper">
-                            <select value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)}>
-                                <option value="">Select Course</option>
-                                {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                    <div className="form-group">
-                        <label>Date:</label>
-                        <div className="pill-input-wrapper">
-                            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-                        </div>
-                    </div>
-                    <div className="form-group">
-                        <label>Search:</label>
-                        <div className="pill-input-wrapper">
-                            <input placeholder="Student name..." value={search} onChange={(e) => setSearch(e.target.value)} />
-                        </div>
-                    </div>
-                    <div className="form-group" style={{ justifyContent: 'flex-end' }}>
-                        <label>Bulk:</label>
-                        <div className="bulk-actions">
-                            <button className="bulk-btn all-p" onClick={() => markAll('PRESENT')}>All P</button>
-                            <button className="bulk-btn all-a" onClick={() => markAll('ABSENT')}>All A</button>
-                        </div>
+            <div className="attendance-page">
+                <div className="attendance-header">
+                    <div className="attendance-title">
+                        <h1>Attendance</h1>
+                        <p>Mark and track student attendance for your courses</p>
                     </div>
                 </div>
 
-                {selectedCourse ? (
-                    <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden' }}>
-                        <table className="dashboard-table" style={{ margin: 0 }}>
-                            <thead>
-                                <tr>
-                                    <th>Student Name</th>
-                                    <th>ID</th>
-                                    <th style={{ textAlign: 'center' }}>Present</th>
-                                    <th style={{ textAlign: 'center' }}>Absent</th>
-                                    <th style={{ textAlign: 'center' }}>Late</th>
-                                    <th>Remarks</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredStudents.map(s => (
-                                    <tr key={s.id}>
-                                        <td>{s.full_name}</td>
-                                        <td>{s.email.split('@')[0].toUpperCase()}</td>
-                                        <td style={{ textAlign: 'center' }}>
-                                            <input type="radio" className="status-radio present" checked={attendance[s.id]?.status === 'PRESENT'} onChange={() => handleStatusChange(s.id, 'PRESENT')} />
-                                        </td>
-                                        <td style={{ textAlign: 'center' }}>
-                                            <input type="radio" className="status-radio absent" checked={attendance[s.id]?.status === 'ABSENT'} onChange={() => handleStatusChange(s.id, 'ABSENT')} />
-                                        </td>
-                                        <td style={{ textAlign: 'center' }}>
-                                            <input type="radio" className="status-radio late" checked={attendance[s.id]?.status === 'LATE'} onChange={() => handleStatusChange(s.id, 'LATE')} />
-                                        </td>
-                                        <td>
-                                            <div className="pill-input-wrapper" style={{ padding: '0 10px', height: '35px' }}>
-                                                <input placeholder="Remarks..." value={attendance[s.id]?.remarks || ""} onChange={(e) => handleRemarksChange(s.id, e.target.value)} style={{ fontSize: '0.8rem' }} />
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <div className="dashboard-card" style={{ textAlign: 'center', padding: '100px', color: '#94a3b8' }}>
-                        <span className="material-icons-round" style={{ fontSize: '3rem', marginBottom: '15px' }}>event_note</span>
-                        <h3>Please select a course to mark attendance</h3>
+                {message.text && (
+                    <div className={`attendance-message ${message.type}`}>
+                        <span className="material-icons-round">
+                            {message.type === 'success' ? 'check_circle' : 'error'}
+                        </span>
+                        {message.text}
+                        <button onClick={() => setMessage({ type: "", text: "" })}>×</button>
                     </div>
                 )}
 
-                <div className="form-actions" style={{ marginTop: '30px', gap: '15px' }}>
-                    <button className="pill-submit-btn secondary" style={{ width: '150px' }}>Export ▼</button>
-                    <button className="pill-submit-btn secondary" style={{ width: '150px', backgroundColor: '#e0f2fe', color: '#0369a1', borderColor: 'transparent' }}>Save</button>
-                    <button className="pill-submit-btn primary" style={{ width: '200px' }} onClick={handleSubmit} disabled={submitting || !selectedCourse}>
-                        {submitting ? "Submitting..." : "Submit"}
-                    </button>
+                <div className="attendance-filters">
+                    <div className="filter-group">
+                        <label>Course</label>
+                        <select value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)}>
+                            <option value="">Select your course</option>
+                            {courses.map(c => (
+                                <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="filter-group">
+                        <label>Date</label>
+                        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                    </div>
+                    <div className="filter-group">
+                        <label>Search Student</label>
+                        <input 
+                            type="text" 
+                            placeholder="Search by name..."
+                            value={search} 
+                            onChange={(e) => setSearch(e.target.value)} 
+                        />
+                    </div>
                 </div>
+
+                {selectedCourse && (
+                    <>
+                        <div className="attendance-stats">
+                            <div className="stat-card">
+                                <span className="stat-value">{stats.total}</span>
+                                <span className="stat-label">Total Students</span>
+                            </div>
+                            <div className="stat-card present">
+                                <span className="stat-value">{stats.present}</span>
+                                <span className="stat-label">Present</span>
+                            </div>
+                            <div className="stat-card absent">
+                                <span className="stat-value">{stats.absent}</span>
+                                <span className="stat-label">Absent</span>
+                            </div>
+                            <div className="stat-card late">
+                                <span className="stat-value">{stats.late}</span>
+                                <span className="stat-label">Late</span>
+                            </div>
+                        </div>
+
+                        <div className="attendance-actions-bar">
+                            <div className="bulk-actions">
+                                <span>Mark All:</span>
+                                <button className="bulk-btn present" onClick={() => markAll('PRESENT')}>
+                                    <span className="material-icons-round">check_circle</span> Present
+                                </button>
+                                <button className="bulk-btn absent" onClick={() => markAll('ABSENT')}>
+                                    <span className="material-icons-round">cancel</span> Absent
+                                </button>
+                                <button className="bulk-btn late" onClick={() => markAll('LATE')}>
+                                    <span className="material-icons-round">schedule</span> Late
+                                </button>
+                            </div>
+                            {existingRecord && (
+                                <span className="existing-badge">
+                                    <span className="material-icons-round">history</span>
+                                    Previously recorded
+                                </span>
+                            )}
+                        </div>
+                    </>
+                )}
+
+                {selectedCourse ? (
+                    loading ? (
+                        <div className="attendance-empty">
+                            <span className="material-icons-round">sync</span>
+                            <p>Loading students...</p>
+                        </div>
+                    ) : filteredStudents.length === 0 ? (
+                        <div className="attendance-empty">
+                            <span className="material-icons-round">group_off</span>
+                            <p>No students found{search ? ' matching your search' : ' enrolled in this course'}</p>
+                        </div>
+                    ) : (
+                        <div className="attendance-list">
+                            {filteredStudents.map(s => (
+                                <div key={s.id} className={`attendance-row ${attendance[s.id]?.status?.toLowerCase()}`}>
+                                    <div className="student-info">
+                                        <div className="student-avatar">
+                                            <span className="material-icons-round">person</span>
+                                        </div>
+                                        <div className="student-details">
+                                            <span className="student-name">{s.full_name}</span>
+                                            <span className="student-id">{s.email}</span>
+                                        </div>
+                                    </div>
+                                    <div className="status-toggle">
+                                        <button 
+                                            className={`status-btn ${attendance[s.id]?.status === 'PRESENT' ? 'active' : ''}`}
+                                            onClick={() => handleStatusChange(s.id, 'PRESENT')}
+                                            title="Present"
+                                        >
+                                            <span className="material-icons-round">check</span>
+                                            Present
+                                        </button>
+                                        <button 
+                                            className={`status-btn ${attendance[s.id]?.status === 'ABSENT' ? 'active' : ''}`}
+                                            onClick={() => handleStatusChange(s.id, 'ABSENT')}
+                                            title="Absent"
+                                        >
+                                            <span className="material-icons-round">close</span>
+                                            Absent
+                                        </button>
+                                        <button 
+                                            className={`status-btn ${attendance[s.id]?.status === 'LATE' ? 'active' : ''}`}
+                                            onClick={() => handleStatusChange(s.id, 'LATE')}
+                                            title="Late"
+                                        >
+                                            <span className="material-icons-round">schedule</span>
+                                            Late
+                                        </button>
+                                    </div>
+                                    <div className="remarks-field">
+                                        <input 
+                                            type="text" 
+                                            placeholder="Add remarks..."
+                                            value={attendance[s.id]?.remarks || ""} 
+                                            onChange={(e) => handleRemarksChange(s.id, e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )
+                ) : (
+                    <div className="attendance-empty">
+                        <span className="material-icons-round">event_note</span>
+                        <h3>Select a course to start marking attendance</h3>
+                        <p>Choose one of your courses from the dropdown above</p>
+                    </div>
+                )}
+
+                {selectedCourse && students.length > 0 && (
+                    <div className="attendance-footer">
+                        <button 
+                            className="submit-btn" 
+                            onClick={handleSubmit} 
+                            disabled={submitting}
+                        >
+                            <span className="material-icons-round">save</span>
+                            {submitting ? "Saving..." : existingRecord ? "Update Attendance" : "Record Attendance"}
+                        </button>
+                    </div>
+                )}
             </div>
         </DashboardLayout>
     );
