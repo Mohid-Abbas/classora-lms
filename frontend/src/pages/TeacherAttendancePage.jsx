@@ -7,7 +7,8 @@ export default function TeacherAttendancePage() {
     const [user] = useState(JSON.parse(localStorage.getItem("current_user") || "{}"));
     const [courses, setCourses] = useState([]);
     const [students, setStudents] = useState([]);
-    const [selectedCourse, setSelectedCourse] = useState("");
+    const [selectedCourseId, setSelectedCourseId] = useState("");
+    const [selectedCourse, setSelectedCourse] = useState(null);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [attendance, setAttendance] = useState({});
     const [search, setSearch] = useState("");
@@ -31,14 +32,18 @@ export default function TeacherAttendancePage() {
     }, [user.id]);
 
     useEffect(() => {
-        if (selectedCourse) {
+        if (selectedCourseId) {
+            // Find the course object from courses list
+            const course = courses.find(c => c.id === selectedCourseId);
+            setSelectedCourse(course);
             fetchCourseData();
         } else {
             setStudents([]);
             setAttendance({});
             setExistingRecord(null);
+            setSelectedCourse(null);
         }
-    }, [selectedCourse, date]);
+    }, [selectedCourseId, date, courses]);
 
     const fetchCourseData = async () => {
         setLoading(true);
@@ -49,36 +54,60 @@ export default function TeacherAttendancePage() {
         let errorMsg = "";
         
         try {
-            // Get all students first
-            console.log("Fetching students for institute:", user.institute_id);
-            const studentsRes = await apiClient.get(`/api/users/?role=STUDENT&institute=${user.institute_id}`);
-            console.log("Students response:", studentsRes.data);
-            
-            const allStudents = Array.isArray(studentsRes.data) ? studentsRes.data : (studentsRes.data.results || []);
+            // Get all students first - try with institute filter
+            let allStudents = [];
+            try {
+                console.log("Fetching students for institute:", user.institute_id);
+                const studentsRes = await apiClient.get(`/api/users/?role=STUDENT&institute=${user.institute_id}`);
+                console.log("Students response:", studentsRes.data);
+                allStudents = Array.isArray(studentsRes.data) ? studentsRes.data : (studentsRes.data.results || []);
+            } catch (permErr) {
+                console.log("Permission error with institute filter, trying without:", permErr.message);
+                // Try without institute filter
+                try {
+                    const studentsRes = await apiClient.get(`/api/users/?role=STUDENT`);
+                    allStudents = Array.isArray(studentsRes.data) ? studentsRes.data : (studentsRes.data.results || []);
+                } catch (permErr2) {
+                    console.log("Still permission denied:", permErr2.message);
+                    // Teacher doesn't have permission to see students at all
+                    allStudents = [];
+                }
+            }
             console.log("All students count:", allStudents.length);
             
             let enrolledStudents = [];
             
-            // Try to get course details
-            try {
-                console.log("Fetching course details for:", selectedCourse);
-                const courseRes = await apiClient.get(`/api/lms/courses/${selectedCourse}/`);
-                console.log("Course response:", courseRes.data);
-                
-                const course = courseRes.data;
-                const enrolledIds = course.enrolled_students || course.students || course.student_ids || [];
-                console.log("Enrolled IDs:", enrolledIds);
-                
-                if (enrolledIds.length > 0) {
-                    enrolledStudents = allStudents.filter(s => enrolledIds.includes(s.id));
-                } else {
-                    // No enrolled students in course, show empty
-                    enrolledStudents = [];
+            // Try to get enrolled students from the already-loaded course data
+            let enrolledIds = [];
+            if (selectedCourse) {
+                enrolledIds = selectedCourse.enrolled_students || selectedCourse.students || selectedCourse.student_ids || [];
+                console.log("Enrolled IDs from course data:", enrolledIds);
+            }
+            
+            // If no students in course data, try the detail endpoint
+            if (enrolledIds.length === 0) {
+                try {
+                    console.log("Fetching course details for:", selectedCourseId);
+                    const courseRes = await apiClient.get(`/api/lms/courses/${selectedCourseId}/`);
+                    console.log("Course response:", courseRes.data);
+                    const course = courseRes.data;
+                    enrolledIds = course.enrolled_students || course.students || course.student_ids || [];
+                    console.log("Enrolled IDs from API:", enrolledIds);
+                } catch (courseErr) {
+                    console.log("Course detail failed:", courseErr.message);
                 }
-            } catch (courseErr) {
-                console.log("Course detail failed, using all students:", courseErr.message);
-                // Fallback: show all students
-                enrolledStudents = allStudents;
+            }
+            
+            // Build student list
+            if (enrolledIds.length > 0 && allStudents.length > 0) {
+                enrolledStudents = allStudents.filter(s => enrolledIds.includes(s.id));
+            } else if (enrolledIds.length > 0) {
+                // We have IDs but no student details - show message
+                enrolledStudents = [];
+                hasError = true;
+                errorMsg = "Cannot load student details. Contact admin to check user permissions.";
+            } else {
+                enrolledStudents = [];
             }
             
             console.log("Final enrolled students:", enrolledStudents.length);
@@ -226,7 +255,7 @@ export default function TeacherAttendancePage() {
                 <div className="attendance-filters">
                     <div className="filter-group">
                         <label>Course</label>
-                        <select value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)}>
+                        <select value={selectedCourseId} onChange={(e) => setSelectedCourseId(e.target.value)}>
                             <option value="">Select your course</option>
                             {courses.map(c => (
                                 <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
@@ -248,7 +277,7 @@ export default function TeacherAttendancePage() {
                     </div>
                 </div>
 
-                {selectedCourse && (
+                {selectedCourseId && (
                     <>
                         <div className="attendance-stats">
                             <div className="stat-card">
@@ -292,7 +321,7 @@ export default function TeacherAttendancePage() {
                     </>
                 )}
 
-                {selectedCourse ? (
+                {selectedCourseId ? (
                     loading ? (
                         <div className="attendance-empty">
                             <span className="material-icons-round">sync</span>
@@ -362,7 +391,7 @@ export default function TeacherAttendancePage() {
                     </div>
                 )}
 
-                {selectedCourse && students.length > 0 && (
+                {selectedCourseId && students.length > 0 && (
                     <div className="attendance-footer">
                         <button 
                             className="submit-btn" 
