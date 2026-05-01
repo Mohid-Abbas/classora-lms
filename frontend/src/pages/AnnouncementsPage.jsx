@@ -21,6 +21,7 @@ export default function AnnouncementsPage() {
     const [submitting, setSubmitting] = useState(false);
     const [commentTexts, setCommentTexts] = useState({}); // { announcementId: text }
     const [editingComment, setEditingComment] = useState(null); // { id, content }
+    const [showCreatePanel, setShowCreatePanel] = useState(false); // Toggle create panel
 
     useEffect(() => {
         fetchData();
@@ -147,9 +148,20 @@ export default function AnnouncementsPage() {
                     <p className="ann-subtitle">Broadcast messages and engage with your classes</p>
                 </div>
 
-                <div className="ann-layout">
-                    {/* LEFT PANEL: Creation Form */}
-                    {(user.role !== "STUDENT" || courses.length > 0) && (
+                {/* Floating Action Button */}
+                {(user.role !== "STUDENT" || courses.length > 0) && (
+                    <button 
+                        className="ann-fab"
+                        onClick={() => setShowCreatePanel(!showCreatePanel)}
+                        title={showCreatePanel ? "Close panel" : "Make an announcement"}
+                    >
+                        <span className="material-icons-round">{showCreatePanel ? 'close' : 'add'}</span>
+                    </button>
+                )}
+
+                <div className={`ann-layout ${showCreatePanel ? 'with-panel' : ''}`}>
+                    {/* LEFT PANEL: Creation Form - Collapsible */}
+                    {showCreatePanel && (user.role !== "STUDENT" || courses.length > 0) && (
                         <div className="ann-create-panel">
                             <h3 className="ann-panel-title">
                                 <span className="material-icons-round">campaign</span> Make an Announcement
@@ -207,10 +219,15 @@ export default function AnnouncementsPage() {
                                     </div>
                                 </div>
 
-                                <button type="submit" className="ann-submit-btn" disabled={submitting}>
-                                    {submitting ? "Publishing..." : "Post Announcement"}
-                                    <span className="material-icons-round">send</span>
-                                </button>
+                                <div className="ann-form-actions">
+                                    <button type="button" className="ann-cancel-btn" onClick={() => setShowCreatePanel(false)}>
+                                        Cancel
+                                    </button>
+                                    <button type="submit" className="ann-submit-btn" disabled={submitting}>
+                                        {submitting ? "Publishing..." : "Post Announcement"}
+                                        <span className="material-icons-round">send</span>
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     )}
