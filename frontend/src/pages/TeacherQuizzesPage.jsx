@@ -11,6 +11,7 @@ export default function TeacherQuizzesPage() {
     const [activeTab, setActiveTab] = useState(TABS.CREATE);
     const [courses, setCourses] = useState([]);
     const [quizzes, setQuizzes] = useState([]);
+    const [selectedCourse, setSelectedCourse] = useState("");
     const [selectedQuiz, setSelectedQuiz] = useState(null);
     const [attempts, setAttempts] = useState([]);
     const [grading, setGrading] = useState({});
@@ -42,10 +43,16 @@ export default function TeacherQuizzesPage() {
         }
     }, [selectedQuiz]);
 
-    const fetchQuizzes = () =>
-        apiClient.get("/api/lms/quizzes/")
+    const fetchQuizzes = () => {
+        const url = selectedCourse ? `/api/lms/quizzes/?course=${selectedCourse}` : "/api/lms/quizzes/";
+        apiClient.get(url)
             .then(r => setQuizzes(Array.isArray(r.data) ? r.data : (r.data.results || [])))
             .catch(console.error);
+    };
+
+    useEffect(() => {
+        fetchQuizzes();
+    }, [selectedCourse]);
 
     /* ── Question helpers ── */
     const addQuestion = () => setQuestions(prev => [...prev, {
@@ -152,6 +159,13 @@ export default function TeacherQuizzesPage() {
                         <button className={`qz-tab ${activeTab === TABS.RESULTS ? "active" : ""}`} onClick={() => setActiveTab(TABS.RESULTS)}>
                             <span className="material-icons-round">bar_chart</span> Results ({quizzes.length})
                         </button>
+                        {activeTab === TABS.RESULTS && (
+                            <select className="qz-input" style={{ width: 180, padding: '6px 10px', fontSize: '0.85rem' }}
+                                value={selectedCourse} onChange={e => setSelectedCourse(e.target.value)}>
+                                <option value="">All Courses</option>
+                                {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                        )}
                     </div>
                 </div>
 
@@ -330,20 +344,37 @@ export default function TeacherQuizzesPage() {
                         <div className="qz-list-panel">
                             <p className="qz-panel-title">My Quizzes</p>
                             {quizzes.length === 0 && <div className="qz-empty-state"><span className="material-icons-round">quiz</span><p>No quizzes yet</p></div>}
-                            {quizzes.map(qz => (
-                                <div key={qz.id}
-                                    className={`qz-list-item ${selectedQuiz === qz.id ? "selected" : ""}`}
-                                    onClick={() => setSelectedQuiz(qz.id)}>
-                                    <div className="qz-list-item-title">{qz.title}</div>
-                                    <div className="qz-list-item-meta">
-                                        <span className={`qz-badge ${isActive(qz) ? "green" : qz.is_published ? "amber" : "gray"}`}>
-                                            {isActive(qz) ? "Live" : qz.is_published ? "Published" : "Draft"}
-                                        </span>
-                                        <span>{qz.question_count} Qs</span>
-                                        <span>{qz.total_time_minutes}min</span>
+                            {(() => {
+                                const grouped = {};
+                                quizzes.forEach(qz => {
+                                    const key = qz.course;
+                                    if (!grouped[key]) grouped[key] = { name: qz.course_name || `Course #${qz.course}`, code: qz.course_code || "", items: [] };
+                                    grouped[key].items.push(qz);
+                                });
+                                return Object.entries(grouped).map(([courseId, group]) => (
+                                    <div key={courseId} style={{ marginBottom: 12 }}>
+                                        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#7c3aed', padding: '6px 10px', background: '#f5f3ff', borderRadius: 8, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <span className="material-icons-round" style={{ fontSize: 14 }}>school</span>
+                                            {group.name}
+                                            {group.code && <span style={{ color: '#64748b', fontWeight: 600 }}>({group.code})</span>}
+                                        </div>
+                                        {group.items.map(qz => (
+                                            <div key={qz.id}
+                                                className={`qz-list-item ${selectedQuiz === qz.id ? "selected" : ""}`}
+                                                onClick={() => setSelectedQuiz(qz.id)}>
+                                                <div className="qz-list-item-title">{qz.title}</div>
+                                                <div className="qz-list-item-meta">
+                                                    <span className={`qz-badge ${isActive(qz) ? "green" : qz.is_published ? "amber" : "gray"}`}>
+                                                        {isActive(qz) ? "Live" : qz.is_published ? "Published" : "Draft"}
+                                                    </span>
+                                                    <span>{qz.question_count} Qs</span>
+                                                    <span>{qz.total_time_minutes}min</span>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                </div>
-                            ))}
+                                ));
+                            })()}
                         </div>
 
                         <div className="qz-detail-panel">
