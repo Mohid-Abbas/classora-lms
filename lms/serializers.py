@@ -14,6 +14,10 @@ class DepartmentSerializer(serializers.ModelSerializer):
         read_only_fields = ['institute']
 
 class CourseSerializer(serializers.ModelSerializer):
+    students = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    teachers = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    enrolled_students = serializers.SerializerMethodField()
+    
     class Meta:
         model = Course
         fields = "__all__"
@@ -23,6 +27,10 @@ class CourseSerializer(serializers.ModelSerializer):
             'students': {'required': False},
             'section': {'required': False, 'default': 'A'},
         }
+    
+    def get_enrolled_students(self, obj):
+        # Return list of student IDs for convenience
+        return list(obj.students.values_list('id', flat=True))
 
 class LectureSerializer(serializers.ModelSerializer):
     class Meta:
