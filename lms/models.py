@@ -18,6 +18,8 @@ class Course(models.Model):
     code = models.CharField(max_length=100)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name='courses')
     semester = models.CharField(max_length=100, null=True, blank=True)
+    academic_year = models.CharField(max_length=20, null=True, blank=True, help_text="e.g., 2025-2026")
+    section = models.CharField(max_length=20, default="A", help_text="Course section (A, B, C, etc.)")
     description = models.TextField(null=True, blank=True)
     icon = models.ImageField(upload_to="course_icons/", null=True, blank=True)
     credits = models.PositiveIntegerField(default=3)
@@ -28,8 +30,13 @@ class Course(models.Model):
     students = models.ManyToManyField(CustomUser, related_name="enrolled_courses", limit_choices_to={'role': 'STUDENT'}, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = ['institute', 'code', 'semester', 'academic_year', 'section']
+
     def __str__(self):
-        return f"{self.code}: {self.name}"
+        section_str = f" (Section {self.section})" if self.section else ""
+        year_str = f" [{self.academic_year}]" if self.academic_year else ""
+        return f"{self.code}: {self.name}{section_str}{year_str}"
 
 class Lecture(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="lectures")
