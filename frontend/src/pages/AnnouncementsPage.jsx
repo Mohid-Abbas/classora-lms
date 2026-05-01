@@ -19,9 +19,10 @@ export default function AnnouncementsPage() {
     });
     const [selectedImage, setSelectedImage] = useState(null);
     const [submitting, setSubmitting] = useState(false);
-    const [commentTexts, setCommentTexts] = useState({}); // { announcementId: text }
-    const [editingComment, setEditingComment] = useState(null); // { id, content }
-    const [showCreatePanel, setShowCreatePanel] = useState(false); // Toggle create panel
+    const [commentTexts, setCommentTexts] = useState({});
+    const [editingComment, setEditingComment] = useState(null);
+    const [showModal, setShowModal] = useState(false);
+    const [expandedComments, setExpandedComments] = useState({}); // Track which announcements show comments
 
     useEffect(() => {
         fetchData();
@@ -72,6 +73,7 @@ export default function AnnouncementsPage() {
             
             setFormData({ title: "", content: "", target_role: "ALL", course: "", department: "" });
             setSelectedImage(null);
+            setShowModal(false);
             fetchData();
         } catch (err) {
             alert("Failed to post announcement. " + JSON.stringify(err.response?.data || ""));
@@ -80,11 +82,21 @@ export default function AnnouncementsPage() {
         }
     };
 
+    const closeModal = () => {
+        setShowModal(false);
+        setFormData({ title: "", content: "", target_role: "ALL", course: "", department: "" });
+        setSelectedImage(null);
+    };
+
+    const toggleComments = (annId) => {
+        setExpandedComments({ ...expandedComments, [annId]: !expandedComments[annId] });
+    };
+
     const postComment = async (announcementId) => {
         const txt = commentTexts[announcementId];
         if (!txt || !txt.trim()) return;
         try {
-            const response = await apiClient.post("/api/lms/announcement-comments/", {
+            await apiClient.post("/api/lms/announcement-comments/", {
                 announcement: announcementId,
                 content: txt
             });
@@ -93,7 +105,6 @@ export default function AnnouncementsPage() {
         } catch(err) {
             const msg = err.response?.data?.detail || err.response?.data?.content?.[0] || "Server error";
             alert(`Failed to post comment: ${msg}`);
-            console.error("Comment Error:", err.response?.data);
         }
     };
 
@@ -140,251 +151,233 @@ export default function AnnouncementsPage() {
         }
     };
 
+    const canCreate = user.role !== "STUDENT" || courses.length > 0;
+
     return (
         <DashboardLayout user={user}>
             <div className="ann-page-container">
-                <div className="ann-header">
-                    <h1 className="ann-title">Announcements</h1>
-                    <p className="ann-subtitle">Broadcast messages and engage with your classes</p>
+                <div className="ann-header-bar">
+                    <div className="ann-header-title">
+                        <h1>Announcements</h1>
+                        <p>Manage institute-wide communications</p>
+                    </div>
+                    {canCreate && (
+                        <button className="ann-new-btn" onClick={() => setShowModal(true)}>
+                            <span className="material-icons-round">add</span>
+                            New Announcement
+                        </button>
+                    )}
                 </div>
 
-                {/* Admin: Always show side panel, Others: FAB to toggle */}
-                {user.role !== "ADMIN" && (user.role !== "STUDENT" || courses.length > 0) && (
-                    <button 
-                        className="ann-fab"
-                        onClick={() => setShowCreatePanel(!showCreatePanel)}
-                        title={showCreatePanel ? "Close panel" : "Make an announcement"}
-                    >
-                        <span className="material-icons-round">{showCreatePanel ? 'close' : 'add'}</span>
-                    </button>
-                )}
-
-                <div className={`ann-layout ${showCreatePanel || user.role === 'ADMIN' ? 'with-panel' : ''} ${user.role === 'ADMIN' ? 'admin-layout' : ''}`}>
-                    {/* LEFT PANEL: Creation Form - Always visible for Admin */}
-                    {(showCreatePanel || user.role === 'ADMIN') && (user.role !== "STUDENT" || courses.length > 0) && (
-                        <div className={`ann-create-panel ${user.role === 'ADMIN' ? 'admin-panel' : ''}`}>
-                            <h3 className="ann-panel-title">
-                                <span className="material-icons-round">campaign</span> Make an Announcement
-                            </h3>
-                            <form onSubmit={handleSubmit} className="ann-form">
+                {/* Create Modal */}
+                {showModal && (
+                    <div className="ann-modal-overlay" onClick={closeModal}>
+                        <div className="ann-modal" onClick={(e) => e.stopPropagation()}>
+                            <div className="ann-modal-header">
+                                <h3><span className="material-icons-round">campaign</span> New Announcement</h3>
+                                <button className="ann-modal-close" onClick={closeModal}>
+                                    <span className="material-icons-round">close</span>
+                                </button>
+                            </div>
+                            <form onSubmit={handleSubmit} className="ann-modal-form">
                                 <div className="ann-form-group">
-                                    <label>What's the title?</label>
-                                    <input type="text" name="title" className="ann-input" value={formData.title} onChange={handleInputChange} required placeholder="e.g., Important Update..." />
-                                </div>
-
-                                <div className="ann-form-group">
-                                    <label>Target Audience</label>
-                                    <select name="target_role" className="ann-input" value={formData.target_role} onChange={handleInputChange}>
-                                        <option value="ALL">Everyone</option>
-                                        <option value="STUDENT">Students Only</option>
-                                        <option value="TEACHER">Teachers Only</option>
-                                    </select>
+                                    <label>Title</label>
+                                    <input type="text" name="title" value={formData.title} onChange={handleInputChange} required placeholder="Enter announcement title..." />
                                 </div>
 
                                 <div className="ann-form-row">
+                                    <div className="ann-form-group">
+                                        <label>Target</label>
+                                        <select name="target_role" value={formData.target_role} onChange={handleInputChange}>
+                                            <option value="ALL">Everyone</option>
+                                            <option value="STUDENT">Students Only</option>
+                                            <option value="TEACHER">Teachers Only</option>
+                                        </select>
+                                    </div>
                                     {user.role === "ADMIN" && (
                                         <div className="ann-form-group">
-                                            <label>Specific Department</label>
-                                            <select name="department" className="ann-input" value={formData.department} onChange={handleInputChange}>
-                                                <option value="">-- All Departments --</option>
+                                            <label>Department</label>
+                                            <select name="department" value={formData.department} onChange={handleInputChange}>
+                                                <option value="">All Departments</option>
                                                 {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                             </select>
                                         </div>
                                     )}
-                                    <div className="ann-form-group">
-                                        <label>{user.role === "STUDENT" ? "Select Your Course (Required)" : "Specific Class"}</label>
-                                        <select name="course" className="ann-input" value={formData.course} onChange={handleInputChange} required={user.role === "STUDENT"}>
-                                            <option value="">{user.role === "STUDENT" ? "-- Select Your Course --" : `-- Across ${user.role === "TEACHER" ? "My Classes" : "All Classes"} --`}</option>
-                                            {courses
-                                                .filter(c => !formData.department || c.department === parseInt(formData.department))
-                                                .map(c => <option key={c.id} value={c.id}>{c.code}: {c.name} (Sec {c.section || 'A'})</option>)
-                                            }
-                                        </select>
-                                    </div>
                                 </div>
 
                                 <div className="ann-form-group">
-                                    <label>Announcement Message</label>
-                                    <textarea name="content" className="ann-input ann-textarea" value={formData.content} onChange={handleInputChange} required placeholder="Type the announcement details here..."></textarea>
+                                    <label>Course (Optional)</label>
+                                    <select name="course" value={formData.course} onChange={handleInputChange}>
+                                        <option value="">All Courses</option>
+                                        {courses
+                                            .filter(c => !formData.department || c.department === parseInt(formData.department))
+                                            .map(c => <option key={c.id} value={c.id}>{c.code}: {c.name}</option>)
+                                        }
+                                    </select>
                                 </div>
 
                                 <div className="ann-form-group">
-                                    <label>Attach a Picture (Optional)</label>
-                                    <div style={{ position: 'relative' }}>
-                                        <input type="file" accept="image/*" onChange={handleImageChange} style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }} />
-                                        <div className="ann-input" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: selectedImage ? '#7c3aed' : '#94a3b8' }}>
+                                    <label>Message</label>
+                                    <textarea name="content" value={formData.content} onChange={handleInputChange} required placeholder="Write your announcement message..." rows={5} />
+                                </div>
+
+                                <div className="ann-form-group">
+                                    <label>Attachment</label>
+                                    <div className="ann-file-input">
+                                        <input type="file" accept="image/*" onChange={handleImageChange} id="ann-file" />
+                                        <label htmlFor="ann-file" className={selectedImage ? 'has-file' : ''}>
                                             <span className="material-icons-round">image</span>
                                             {selectedImage ? selectedImage.name : "Choose an image..."}
-                                        </div>
+                                        </label>
                                     </div>
                                 </div>
 
-                                <div className="ann-form-actions">
-                                    {user.role !== 'ADMIN' && (
-                                        <button type="button" className="ann-cancel-btn" onClick={() => setShowCreatePanel(false)}>
-                                            Cancel
-                                        </button>
-                                    )}
-                                    <button type="submit" className={`ann-submit-btn ${user.role === 'ADMIN' ? 'admin-btn' : ''}`} disabled={submitting}>
-                                        {submitting ? "Publishing..." : user.role === 'ADMIN' ? "Broadcast Announcement" : "Post Announcement"}
-                                        <span className="material-icons-round">send</span>
+                                <div className="ann-modal-actions">
+                                    <button type="button" className="ann-btn-secondary" onClick={closeModal}>Cancel</button>
+                                    <button type="submit" className="ann-btn-primary" disabled={submitting}>
+                                        {submitting ? "Publishing..." : "Post Announcement"}
                                     </button>
                                 </div>
                             </form>
                         </div>
+                    </div>
+                )}
+
+                {/* Announcements List */}
+                <div className="ann-list">
+                    {loading && <div className="ann-empty"><p>Loading...</p></div>}
+                    
+                    {!loading && announcements.length === 0 && (
+                        <div className="ann-empty">
+                            <span className="material-icons-round">notifications_off</span>
+                            <p>No announcements yet</p>
+                        </div>
                     )}
 
-                    {/* RIGHT PANEL: Feed */}
-                    <div className="ann-feed">
-                        {loading && <div className="ann-empty"><p>Loading announcements...</p></div>}
-                        {!loading && announcements.length === 0 && (
-                            <div className="ann-empty">
-                                <span className="material-icons-round">notifications_paused</span>
-                                <p>Nothing here yet. Stay tuned!</p>
-                            </div>
-                        )}
-
-                        {!loading && announcements.map(ann => {
-                            const d = new Date(ann.created_at);
-                            const imgUrl = ann.image_url || (ann.image ? `http://localhost:8000${ann.image}` : null);
-                            
-                            return (
-                                <div key={ann.id} className="ann-card">
-                                    <div className="ann-card-header">
-                                        <div className="ann-avatar">
-                                            <span className="material-icons-round">person</span>
-                                        </div>
-                                        <div className="ann-card-header-main">
-                                            <div className="ann-author">{ann.author_name}</div>
-                                            <div className="ann-meta">
-                                                {d.toLocaleDateString()} at {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-                                            <div className="ann-chips-row">
-                                                {ann.author_role === "ADMIN" ? (
-                                                    <span className="ann-chip admin">Admin</span>
-                                                ) : (
-                                                    <span className="ann-chip teacher">Teacher</span>
-                                                )}
-                                                {ann.course ? (
-                                                    <span className="ann-chip blue">Class</span>
-                                                ) : ann.department ? (
-                                                    <span className="ann-chip purple">Dept</span>
-                                                ) : (
-                                                    <span className="ann-chip global">Global</span>
-                                                )}
+                    {!loading && announcements.map(ann => {
+                        const d = new Date(ann.created_at);
+                        const commentCount = ann.comments?.length || 0;
+                        const showComments = expandedComments[ann.id];
+                        
+                        return (
+                            <div key={ann.id} className="ann-bar">
+                                <div className="ann-bar-main">
+                                    <div className="ann-bar-icon">
+                                        <span className="material-icons-round">campaign</span>
+                                    </div>
+                                    <div className="ann-bar-content">
+                                        <div className="ann-bar-header">
+                                            <h4 className="ann-bar-title">{ann.title}</h4>
+                                            <div className="ann-bar-meta">
+                                                <span className="ann-bar-author">{ann.author_name}</span>
+                                                <span className="ann-bar-dot">•</span>
+                                                <span className="ann-bar-date">{d.toLocaleDateString()}</span>
+                                                <span className="ann-bar-time">{d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                             </div>
                                         </div>
+                                        <p className="ann-bar-text">{ann.content}</p>
                                         
-                                        {(user.role === 'ADMIN' || user.id === ann.author) && (
+                                        {ann.image && (
+                                            <div className="ann-bar-image">
+                                                <img src={`http://localhost:8000${ann.image}`} alt="" />
+                                            </div>
+                                        )}
+
+                                        <div className="ann-bar-footer">
                                             <button 
-                                                className="topbar-icon-btn"
-                                                style={{ color: '#f43f5e', background: 'transparent' }}
-                                                onClick={() => deleteAnnouncement(ann.id)}
+                                                className="ann-bar-comment-toggle"
+                                                onClick={() => toggleComments(ann.id)}
                                             >
-                                                <span className="material-icons-round" style={{ fontSize: 20 }}>delete_outline</span>
+                                                <span className="material-icons-round">chat_bubble_outline</span>
+                                                {commentCount > 0 ? `${commentCount} Comments` : "No comments"}
+                                                <span className="material-icons-round expand-icon">
+                                                    {showComments ? 'expand_less' : 'expand_more'}
+                                                </span>
                                             </button>
-                                        )}
+                                            
+                                            {(user.role === 'ADMIN' || user.id === ann.author) && (
+                                                <button 
+                                                    className="ann-bar-delete"
+                                                    onClick={() => deleteAnnouncement(ann.id)}
+                                                >
+                                                    <span className="material-icons-round">delete_outline</span>
+                                                    Delete
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
+                                </div>
 
-                                    <div className="ann-card-body">
-                                        <h2 className="ann-card-title">{ann.title}</h2>
-                                        <p className="ann-card-content">{ann.content}</p>
-                                        
-                                        {imgUrl && (
-                                            <div className="ann-image-container" style={{ marginBottom: '24px', borderRadius: '16px', overflow: 'hidden', border: '1px solid #f1f5f9' }}>
-                                                <img 
-                                                    src={imgUrl} 
-                                                    alt="Announcement" 
-                                                    style={{ width: '100%', display: 'block', objectFit: 'cover', maxHeight: '500px' }}
-                                                    onClick={() => window.open(imgUrl, '_blank')}
-                                                />
+                                {/* Expandable Comments Section */}
+                                {showComments && (
+                                    <div className="ann-bar-comments">
+                                        {commentCount === 0 ? (
+                                            <div className="ann-no-comments">No comments yet. Be the first to comment!</div>
+                                        ) : (
+                                            <div className="ann-comments-list">
+                                                {ann.comments.map(cmt => (
+                                                    <div key={cmt.id} className="ann-comment-item">
+                                                        <div className="ann-comment-avatar">
+                                                            <span className="material-icons-round">account_circle</span>
+                                                        </div>
+                                                        <div className="ann-comment-body">
+                                                            {editingComment && editingComment.id === cmt.id ? (
+                                                                <div className="ann-comment-edit">
+                                                                    <input
+                                                                        value={editingComment.content}
+                                                                        onChange={e => setEditingComment({ ...editingComment, content: e.target.value })}
+                                                                        onKeyDown={e => {
+                                                                            if (e.key === 'Enter') updateComment();
+                                                                            if (e.key === 'Escape') cancelEditComment();
+                                                                        }}
+                                                                        autoFocus
+                                                                    />
+                                                                    <button onClick={updateComment}><span className="material-icons-round">check</span></button>
+                                                                    <button onClick={cancelEditComment}><span className="material-icons-round">close</span></button>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="ann-comment-header">
+                                                                        <span className="ann-comment-author">{cmt.user_name}</span>
+                                                                        <span className="ann-comment-role">{cmt.user_role}</span>
+                                                                        {(user.role === 'ADMIN' || user.id === cmt.user) && (
+                                                                            <div className="ann-comment-actions">
+                                                                                <button onClick={() => startEditComment(cmt)} title="Edit">
+                                                                                    <span className="material-icons-round">edit</span>
+                                                                                </button>
+                                                                                <button onClick={() => deleteComment(cmt.id)} title="Delete">
+                                                                                    <span className="material-icons-round">delete</span>
+                                                                                </button>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="ann-comment-text">{cmt.content}</div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         )}
-                                    </div>
-
-                                    {/* Comments Section */}
-                                    <div className="ann-comments-section">
-                                        <div className="ann-comments-list">
-                                            {(ann.comments || []).map(cmt => (
-                                                <div key={cmt.id} className="ann-comment">
-                                                    <div className="ann-comment-avatar">
-                                                        <span className="material-icons-round" style={{ fontSize: 16 }}>account_circle</span>
-                                                    </div>
-                                                    <div className="ann-comment-body" style={{ position: 'relative' }}>
-                                                        <div className="ann-comment-author">
-                                                            {cmt.user_name} <span style={{ opacity: 0.6, fontSize: '0.75rem' }}>· {cmt.user_role}</span>
-                                                        </div>
-                                                        
-                                                        {editingComment && editingComment.id === cmt.id ? (
-                                                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                                                                <input
-                                                                    type="text"
-                                                                    value={editingComment.content}
-                                                                    onChange={e => setEditingComment({ ...editingComment, content: e.target.value })}
-                                                                    onKeyDown={e => {
-                                                                        if (e.key === 'Enter') updateComment();
-                                                                        if (e.key === 'Escape') cancelEditComment();
-                                                                    }}
-                                                                    style={{ flex: 1, padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                                                                    autoFocus
-                                                                />
-                                                                <button onClick={updateComment} style={{ padding: '4px 8px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                                                                    <span className="material-icons-round" style={{ fontSize: 16 }}>check</span>
-                                                                </button>
-                                                                <button onClick={cancelEditComment} style={{ padding: '4px 8px', background: '#e2e8f0', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                                                                    <span className="material-icons-round" style={{ fontSize: 16 }}>close</span>
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="ann-comment-text">{cmt.content}</div>
-                                                        )}
-                                                        
-                                                        {(user.role === 'ADMIN' || user.id === cmt.user) && !editingComment && (
-                                                            <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: '8px' }}>
-                                                                <button
-                                                                    style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', opacity: 0.6, padding: '2px' }}
-                                                                    onClick={() => startEditComment(cmt)}
-                                                                    title="Edit comment"
-                                                                >
-                                                                    <span className="material-icons-round" style={{ fontSize: 16 }}>edit</span>
-                                                                </button>
-                                                                <button
-                                                                    style={{ background: 'none', border: 'none', color: '#f44336', cursor: 'pointer', opacity: 0.6, padding: '2px' }}
-                                                                    onClick={() => deleteComment(cmt.id)}
-                                                                    title="Delete comment"
-                                                                >
-                                                                    <span className="material-icons-round" style={{ fontSize: 16 }}>delete_outline</span>
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <div className="ann-comment-input-row" style={{ marginTop: '10px' }}>
-                                            <div className="ann-comment-avatar you"><span className="material-icons-round">edit</span></div>
+                                        
+                                        {/* Comment Input */}
+                                        <div className="ann-comment-input-row">
                                             <input
                                                 type="text"
-                                                className="ann-comment-input"
-                                                placeholder="Share your thoughts..."
+                                                placeholder="Add a comment..."
                                                 value={commentTexts[ann.id] || ""}
                                                 onChange={e => setCommentTexts({ ...commentTexts, [ann.id]: e.target.value })}
-                                                onKeyDown={e => {
-                                                    if (e.key === 'Enter') {
-                                                        e.preventDefault();
-                                                        postComment(ann.id);
-                                                    }
-                                                }}
+                                                onKeyDown={e => e.key === 'Enter' && postComment(ann.id)}
                                             />
-                                            <button className="ann-comment-send" onClick={() => postComment(ann.id)}>
+                                            <button onClick={() => postComment(ann.id)} disabled={!commentTexts[ann.id]?.trim()}>
                                                 <span className="material-icons-round">send</span>
                                             </button>
                                         </div>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </DashboardLayout>
