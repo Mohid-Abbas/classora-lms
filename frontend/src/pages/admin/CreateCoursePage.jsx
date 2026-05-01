@@ -14,7 +14,9 @@ export default function CreateCoursePage() {
         name: "",
         code: "",
         department: "",
-        semester: "Fall 2024",
+        semester: "Fall",
+        academic_year: "2025-2026",
+        section: "A",
         description: "",
         credits: 3,
         duration_weeks: 16,
@@ -75,7 +77,7 @@ export default function CreateCoursePage() {
             });
             setMessage({ type: "success", text: "Course created successfully!" });
             setFormData({
-                name: "", code: "", department: "", semester: "Fall 2024",
+                name: "", code: "", department: "", semester: "Fall", academic_year: "2025-2026", section: "A",
                 description: "", credits: 3, duration_weeks: 16, max_students: 50,
                 is_published: false, assigned_teachers: []
             });
@@ -133,9 +135,26 @@ export default function CreateCoursePage() {
                                 <label>Semester:</label>
                                 <div className="pill-input-wrapper">
                                     <select name="semester" value={formData.semester} onChange={handleInputChange}>
-                                        <option value="Fall 2024">Fall 2024</option>
-                                        <option value="Spring 2025">Spring 2025</option>
+                                        <option value="Fall">Fall</option>
+                                        <option value="Spring">Spring</option>
+                                        <option value="Summer">Summer</option>
+                                        <option value="Winter">Winter</option>
                                     </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="form-row">
+                            <div className="form-group flex-1">
+                                <label>Academic Year:</label>
+                                <div className="pill-input-wrapper">
+                                    <input name="academic_year" placeholder="e.g., 2025-2026" value={formData.academic_year} onChange={handleInputChange} required />
+                                </div>
+                            </div>
+                            <div className="form-group flex-1">
+                                <label>Section:</label>
+                                <div className="pill-input-wrapper">
+                                    <input name="section" placeholder="e.g., A, B, C" value={formData.section} onChange={handleInputChange} required />
                                 </div>
                             </div>
                         </div>
@@ -243,6 +262,10 @@ export default function CreateCoursePage() {
                                 <div className="preview-stat">
                                     <span className="material-icons-round" style={{ fontSize: '16px', verticalAlign: 'middle', marginRight: '5px' }}>groups</span>
                                     Teachers: {formData.assigned_teachers.length} assigned
+                                </div>
+                                <div className="preview-stat">
+                                    <span className="material-icons-round" style={{ fontSize: '16px', verticalAlign: 'middle', marginRight: '5px' }}>calendar_today</span>
+                                    {formData.semester} {formData.academic_year} (Sec {formData.section})
                                 </div>
                                 <div className="preview-stat">
                                     <span className="material-icons-round" style={{ fontSize: '16px', verticalAlign: 'middle', marginRight: '5px' }}>layers</span>
