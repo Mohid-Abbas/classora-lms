@@ -638,19 +638,29 @@ class AnnouncementCommentViewSet(viewsets.ModelViewSet):
                 message=f"{self.request.user.full_name} commented on your announcement: '{comment.announcement.title}'"
             )
 
+    def _check_ownership(self, instance):
+        """Check if user can modify this comment."""
+        from rest_framework.exceptions import PermissionDenied
+        user = self.request.user
+        if user.role != "ADMIN" and instance.user_id != user.id:
+            raise PermissionDenied("You can only modify your own comments.")
+
+    def perform_update(self, serializer):
+        self._check_ownership(serializer.instance)
+        comment = serializer.save()
+        
+        # Notify announcement author about edit if someone else edited
+        if comment.announcement.author_id != self.request.user.id:
+            Notification.objects.create(
+                user=comment.announcement.author,
+                title="Comment Edited",
+                message=f"{self.request.user.full_name} edited their comment on your announcement: '{comment.announcement.title}'"
+            )
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        if request.user.role != "ADMIN" and instance.user != request.user:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You can only delete your own comments.")
+        self._check_ownership(instance)
         return super().destroy(request, *args, **kwargs)
-
-    def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if request.user.role != "ADMIN" and instance.user != request.user:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You can only edit your own comments.")
-        return super().update(request, *args, **kwargs)
 
 class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
     queryset = AssignmentSubmission.objects.all()
