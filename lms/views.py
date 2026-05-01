@@ -48,8 +48,44 @@ class CourseViewSet(viewsets.ModelViewSet):
             return self.queryset.filter(students=user, is_published=True)
         return self.queryset.none()
 
+    def _check_duplicate_course(self, data, exclude_instance=None):
+        """Check if a course with same code, semester, academic_year, section already exists in the institute."""
+        from rest_framework.exceptions import ValidationError
+        
+        institute = self.request.user.institute
+        code = data.get('code')
+        semester = data.get('semester')
+        academic_year = data.get('academic_year')
+        section = data.get('section') or 'A'  # Default to 'A' if not provided
+        
+        if not all([code, semester, academic_year]):
+            return  # Let serializer handle required field validation
+        
+        qs = Course.objects.filter(
+            institute=institute,
+            code=code,
+            semester=semester,
+            academic_year=academic_year,
+            section=section
+        )
+        
+        if exclude_instance:
+            qs = qs.exclude(id=exclude_instance.id)
+        
+        if qs.exists():
+            raise ValidationError({
+                "non_field_errors": [
+                    f"A course with code '{code}', semester '{semester}', year '{academic_year}', section '{section}' already exists in your institute."
+                ]
+            })
+
     def perform_create(self, serializer):
+        self._check_duplicate_course(serializer.validated_data)
         serializer.save(institute=self.request.user.institute)
+
+    def perform_update(self, serializer):
+        self._check_duplicate_course(serializer.validated_data, exclude_instance=serializer.instance)
+        serializer.save()
 
     @action(detail=True, methods=['post'], url_path='remove_user')
     def remove_user(self, request, pk=None):
@@ -76,6 +112,60 @@ class CourseViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Cannot remove admin."}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({"detail": "User securely removed from course"}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='assign_teacher')
+    def assign_teacher(self, request, pk=None):
+        """Assign a teacher to this course. Teachers can be assigned to different sections but not twice to the same section."""
+        from rest_framework.exceptions import PermissionDenied, ValidationError
+        from accounts.models import CustomUser
+        
+        if request.user.role != "ADMIN":
+            raise PermissionDenied("Only admins can assign teachers to courses.")
+        
+        course = self.get_object()
+        teacher_id = request.data.get('teacher_id')
+        if not teacher_id:
+            return Response({"detail": "teacher_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            teacher = CustomUser.objects.get(id=teacher_id, institute=request.user.institute, role="TEACHER")
+        except CustomUser.DoesNotExist:
+            return Response({"detail": "Teacher not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Check if teacher is already assigned to this specific course section
+        if course.teachers.filter(id=teacher.id).exists():
+            return Response({
+                "detail": f"Teacher {teacher.full_name} is already assigned to this course section."
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if teacher is already teaching another section of the same course in same semester/year
+        existing_sections = Course.objects.filter(
+            institute=request.user.institute,
+            code=course.code,
+            semester=course.semester,
+            academic_year=course.academic_year,
+            teachers=teacher
+        ).exclude(id=course.id)
+        
+        if existing_sections.exists():
+            section_list = [c.section for c in existing_sections]
+            return Response({
+                "detail": f"Teacher {teacher.full_name} is already assigned to section(s) {', '.join(section_list)} of this course. They can teach multiple sections but are already assigned.",
+                "existing_sections": section_list
+            }, status=status.HTTP_200_OK)  # Allow but inform
+        
+        course.teachers.add(teacher)
+        
+        # Notify the teacher
+        Notification.objects.create(
+            user=teacher,
+            title="Course Assignment",
+            message=f"You have been assigned to teach {course.name} (Section {course.section}) for {course.semester} {course.academic_year}."
+        )
+        
+        return Response({
+            "detail": f"Teacher {teacher.full_name} assigned to {course.name} (Section {course.section})."
+        }, status=status.HTTP_200_OK)
 
 class LectureViewSet(viewsets.ModelViewSet):
     queryset = Lecture.objects.all()
@@ -107,7 +197,37 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             return self.queryset.filter(course__students=user)
         return self.queryset.none()
 
+    def _validate_course_ownership(self, course_id):
+        from rest_framework.exceptions import PermissionDenied, ValidationError
+        user = self.request.user
+        if not course_id:
+            return
+        try:
+            course = Course.objects.get(id=course_id)
+        except Course.DoesNotExist:
+            raise ValidationError({"course": "Course not found."})
+        if user.role == "ADMIN":
+            if course.institute != user.institute:
+                raise PermissionDenied("You can only create assignments for courses in your institute.")
+        elif user.role == "TEACHER":
+            if user not in course.teachers.all():
+                raise PermissionDenied("You can only create assignments for courses you teach.")
+        else:
+            raise PermissionDenied("Students cannot create assignments.")
+
+    def _check_assignment_ownership(self, instance):
+        from rest_framework.exceptions import PermissionDenied
+        user = self.request.user
+        if user.role == "STUDENT":
+            raise PermissionDenied("Students cannot modify assignments.")
+        if user.role == "TEACHER" and user not in instance.course.teachers.all():
+            raise PermissionDenied("You can only modify assignments for your own courses.")
+
     def perform_create(self, serializer):
+        course_id = serializer.validated_data.get('course')
+        if course_id:
+            course_id = course_id.id if hasattr(course_id, 'id') else course_id
+        self._validate_course_ownership(course_id)
         assignment = serializer.save()
         # notify students
         students = assignment.course.students.all()
@@ -120,14 +240,43 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             ))
         Notification.objects.bulk_create(notifications)
 
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        self._check_assignment_ownership(instance)
+        course_id = serializer.validated_data.get('course', instance.course_id)
+        if course_id:
+            course_id = course_id.id if hasattr(course_id, 'id') else course_id
+            if course_id != instance.course_id:
+                self._validate_course_ownership(course_id)
+        assignment = serializer.save()
+        # notify students of update
+        students = assignment.course.students.all()
+        notifications = []
+        for student in students:
+            notifications.append(Notification(
+                user=student,
+                title="Assignment Updated",
+                message=f"Assignment '{assignment.title}' has been updated."
+            ))
+        Notification.objects.bulk_create(notifications)
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        if request.user.role == "STUDENT":
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Students cannot delete assignments.")
-        if request.user.role == "TEACHER" and request.user not in instance.course.teachers.all():
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You can only delete assignments for your own courses.")
+        self._check_assignment_ownership(instance)
+        # Cascade: Delete all related submissions before deleting assignment
+        submission_count = instance.submissions.count()
+        instance.submissions.all().delete()
+        # Notify students
+        students = instance.course.students.all()
+        notifications = [
+            Notification(
+                user=student,
+                title="Assignment Deleted",
+                message=f"Assignment '{instance.title}' has been deleted by your instructor."
+            )
+            for student in students
+        ]
+        Notification.objects.bulk_create(notifications)
         return super().destroy(request, *args, **kwargs)
 
 class QuizViewSet(viewsets.ModelViewSet):
@@ -170,36 +319,56 @@ class QuizViewSet(viewsets.ModelViewSet):
         self._validate_course_ownership(course_id)
         quiz = serializer.save()
         if quiz.is_published:
-            self._notify_students(quiz)
+            self._notify_students(quiz, "New Quiz Available", f"Quiz '{quiz.title}' is now available for {quiz.course.name}.")
+
+    def _check_quiz_ownership(self, instance):
+        from rest_framework.exceptions import PermissionDenied
+        user = self.request.user
+        if user.role == "STUDENT":
+            raise PermissionDenied("Students cannot modify quizzes.")
+        if user.role == "TEACHER" and user not in instance.course.teachers.all():
+            raise PermissionDenied("You can only modify quizzes for your own courses.")
 
     def perform_update(self, serializer):
-        course_id = serializer.validated_data.get('course', serializer.instance.course_id)
+        instance = serializer.instance
+        self._check_quiz_ownership(instance)
+        course_id = serializer.validated_data.get('course', instance.course_id)
         if course_id:
             course_id = course_id.id if hasattr(course_id, 'id') else course_id
-        self._validate_course_ownership(course_id)
-        old_published = serializer.instance.is_published
+            if course_id != instance.course_id:
+                self._validate_course_ownership(course_id)
+        old_published = instance.is_published
         quiz = serializer.save()
         if quiz.is_published and not old_published:
-            self._notify_students(quiz)
+            self._notify_students(quiz, "New Quiz Available", f"Quiz '{quiz.title}' is now available for {quiz.course.name}.")
+        elif quiz.is_published:
+            self._notify_students(quiz, "Quiz Updated", f"Quiz '{quiz.title}' has been updated.")
 
-    def _notify_students(self, quiz):
+    def _notify_students(self, quiz, title, message):
         students = quiz.course.students.all()
         Notification.objects.bulk_create([
             Notification(
                 user=s,
-                title="New Quiz Available",
-                message=f"Quiz '{quiz.title}' is now available for {quiz.course.name}."
+                title=title,
+                message=message
             ) for s in students
         ])
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        if request.user.role == "STUDENT":
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Students cannot delete quizzes.")
-        if request.user.role == "TEACHER" and request.user not in instance.course.teachers.all():
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You can only delete quizzes for your own courses.")
+        self._check_quiz_ownership(instance)
+        # Cascade: Delete all related attempts and questions before deleting quiz
+        instance.attempts.all().delete()
+        instance.questions.all().delete()
+        # Notify students
+        students = instance.course.students.all()
+        Notification.objects.bulk_create([
+            Notification(
+                user=s,
+                title="Quiz Deleted",
+                message=f"Quiz '{instance.title}' has been deleted by your instructor."
+            ) for s in students
+        ])
         return super().destroy(request, *args, **kwargs)
 
 class QuestionViewSet(viewsets.ModelViewSet):
@@ -326,11 +495,38 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
             
         return self.queryset.none()
 
+    def _validate_student_announcement(self, data):
+        """Students can only create announcements for courses they're enrolled in."""
+        from rest_framework.exceptions import PermissionDenied, ValidationError
+        user = self.request.user
+        if user.role != "STUDENT":
+            return
+        
+        course = data.get('course')
+        department = data.get('department')
+        
+        # Student must target a specific course they're enrolled in
+        if course:
+            course_id = course.id if hasattr(course, 'id') else course
+            try:
+                course_obj = Course.objects.get(id=course_id)
+                if user not in course_obj.students.all():
+                    raise PermissionDenied("You can only create announcements for courses you're enrolled in.")
+            except Course.DoesNotExist:
+                raise ValidationError({"course": "Course not found."})
+        elif department:
+            # Check if student is in any course in this department
+            dept_id = department.id if hasattr(department, 'id') else department
+            if not Course.objects.filter(department_id=dept_id, students=user).exists():
+                raise PermissionDenied("You can only create announcements for departments where you're enrolled.")
+        else:
+            raise PermissionDenied("Students must specify a course or department for announcements.")
+
     def perform_create(self, serializer):
         user = self.request.user
-        if user.role == "STUDENT":
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Students cannot create announcements.")
+        
+        # Validate student announcements
+        self._validate_student_announcement(serializer.validated_data)
             
         announcement = serializer.save(author=user, institute=user.institute)
         
@@ -373,19 +569,51 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
                 ) for target in targets if target != user
             ])
             
+    def perform_update(self, serializer):
+        from rest_framework.exceptions import PermissionDenied, ValidationError
+        instance = serializer.instance
+        user = self.request.user
+        
+        # Check ownership (admin can edit any, others can only edit their own)
+        if user.role != "ADMIN" and instance.author != user:
+            raise PermissionDenied("You can only edit your own announcements.")
+        
+        # Students must maintain course enrollment validation
+        if user.role == "STUDENT":
+            course = serializer.validated_data.get('course', instance.course)
+            department = serializer.validated_data.get('department', instance.department)
+            
+            if course:
+                course_id = course.id if hasattr(course, 'id') else course
+                try:
+                    course_obj = Course.objects.get(id=course_id)
+                    if user not in course_obj.students.all():
+                        raise PermissionDenied("You can only update announcements for courses you're enrolled in.")
+                except Course.DoesNotExist:
+                    raise ValidationError({"course": "Course not found."})
+            elif department:
+                dept_id = department.id if hasattr(department, 'id') else department
+                if not Course.objects.filter(department_id=dept_id, students=user).exists():
+                    raise PermissionDenied("You can only update announcements for departments where you're enrolled.")
+            else:
+                raise PermissionDenied("Students must specify a course or department for announcements.")
+        
+        serializer.save()
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        if request.user.role != "ADMIN" and instance.author != request.user:
+        user = request.user
+        
+        # Check ownership (admin can delete any, others can only delete their own)
+        if user.role != "ADMIN" and instance.author != user:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You can only delete your own announcements.")
+        
+        # Additional check for students - can only delete their own announcements
+        if user.role == "STUDENT" and instance.author != user:
+            raise PermissionDenied("Students can only delete their own announcements.")
+            
         return super().destroy(request, *args, **kwargs)
-
-    def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if request.user.role != "ADMIN" and instance.author != request.user:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You can only edit your own announcements.")
-        return super().update(request, *args, **kwargs)
 
 
 class AnnouncementCommentViewSet(viewsets.ModelViewSet):
