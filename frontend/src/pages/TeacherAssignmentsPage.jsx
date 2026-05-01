@@ -23,7 +23,7 @@ export default function TeacherAssignmentsPage() {
     const [submissions, setSubmissions] = useState([]);
     const [selectedAssignment, setSelectedAssignment] = useState(null);
     const [grading, setGrading] = useState({});
-    const [attachmentFile, setAttachmentFile] = useState(null);
+    const [attachmentFiles, setAttachmentFiles] = useState([]); // Multiple files support
     const [links, setLinks] = useState([]);          // [{label, url}]
     const [linkInput, setLinkInput] = useState({ label: "", url: "" });
     const fileInputRef = useRef();
@@ -86,14 +86,17 @@ export default function TeacherAssignmentsPage() {
             payload.append("total_marks", formData.totalMarks);
             payload.append("allow_late_submission", formData.lateSubmit);
             payload.append("links", JSON.stringify(links));
-            if (attachmentFile) payload.append("attachment", attachmentFile);
+            // Support multiple files
+            attachmentFiles.forEach((file, index) => {
+                payload.append(`attachments`, file);
+            });
 
             await apiClient.post("/api/lms/assignments/", payload, {
                 headers: { "Content-Type": "multipart/form-data" }
             });
             setMessage({ type: "success", text: "✅ Assignment published! Enrolled students have been notified." });
             setFormData({ title: "", course: "", description: "", dueDate: "", dueTime: "23:59", totalMarks: 100, lateSubmit: true });
-            setAttachmentFile(null);
+            setAttachmentFiles([]);
             setLinks([]);
             fetchAssignments();
         } catch (err) {
@@ -101,6 +104,21 @@ export default function TeacherAssignmentsPage() {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleFileDrop = (e) => {
+        e.preventDefault();
+        const newFiles = Array.from(e.dataTransfer.files);
+        setAttachmentFiles(prev => [...prev, ...newFiles]);
+    };
+
+    const handleFileSelect = (e) => {
+        const newFiles = Array.from(e.target.files);
+        setAttachmentFiles(prev => [...prev, ...newFiles]);
+    };
+
+    const removeFile = (index) => {
+        setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
     };
 
     const submitGrade = async (subId) => {
@@ -173,30 +191,48 @@ export default function TeacherAssignmentsPage() {
                                     value={formData.description} onChange={handleInputChange} required />
                             </div>
 
-                            {/* File Attach */}
+                            {/* Multiple Files Attach */}
                             <div className="asgn-form-group">
-                                <label>Attach File (PDF, DOCX, ZIP, PPTX…)</label>
+                                <label>Attach Files (PDF, DOCX, ZIP, PPTX…)</label>
                                 <div className="asgn-dropzone"
                                     onClick={() => fileInputRef.current.click()}
-                                    onDrop={(e) => { e.preventDefault(); setAttachmentFile(e.dataTransfer.files[0]); }}
+                                    onDrop={handleFileDrop}
                                     onDragOver={(e) => e.preventDefault()}>
-                                    <input ref={fileInputRef} type="file" hidden
-                                        accept=".pdf,.doc,.docx,.zip,.pptx,.xlsx,.txt,.png,.jpg"
-                                        onChange={(e) => setAttachmentFile(e.target.files[0])} />
-                                    {attachmentFile ? (
-                                        <div className="asgn-file-selected">
-                                            <span className="material-icons-round">insert_drive_file</span>
-                                            <span>{attachmentFile.name}</span>
-                                            <button type="button" className="asgn-remove-file"
-                                                onClick={(e) => { e.stopPropagation(); setAttachmentFile(null); }}>
-                                                <span className="material-icons-round">close</span>
-                                            </button>
+                                    <input 
+                                        ref={fileInputRef} 
+                                        type="file" 
+                                        hidden
+                                        multiple
+                                        accept=".pdf,.doc,.docx,.zip,.pptx,.xlsx,.txt,.png,.jpg,.jpeg,.gif,.mp4,.mp3"
+                                        onChange={handleFileSelect} 
+                                    />
+                                    {attachmentFiles.length > 0 ? (
+                                        <div className="asgn-files-list">
+                                            {attachmentFiles.map((file, index) => (
+                                                <div key={index} className="asgn-file-selected">
+                                                    <span className="material-icons-round">insert_drive_file</span>
+                                                    <span className="file-name">{file.name}</span>
+                                                    <span className="file-size">({(file.size / 1024).toFixed(1)} KB)</span>
+                                                    <button 
+                                                        type="button" 
+                                                        className="asgn-remove-file"
+                                                        onClick={(e) => { e.stopPropagation(); removeFile(index); }}
+                                                    >
+                                                        <span className="material-icons-round">close</span>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            <div className="add-more-files" onClick={(e) => { e.stopPropagation(); fileInputRef.current.click(); }}>
+                                                <span className="material-icons-round">add</span>
+                                                Add more files
+                                            </div>
                                         </div>
                                     ) : (
                                         <div className="asgn-dropzone-hint">
                                             <span className="material-icons-round">cloud_upload</span>
                                             <p>Drag & drop or <u>click to browse</u></p>
-                                            <span>PDF · DOCX · ZIP · PPTX · XLSX · Images</span>
+                                            <span>PDF · DOCX · ZIP · PPTX · XLSX · Images · Videos</span>
+                                            <small>You can select multiple files</small>
                                         </div>
                                     )}
                                 </div>
@@ -257,7 +293,7 @@ export default function TeacherAssignmentsPage() {
 
                             <div className="asgn-form-actions">
                                 <button type="button" className="asgn-btn secondary"
-                                    onClick={() => { setFormData({ title: "", course: "", description: "", dueDate: "", dueTime: "23:59", totalMarks: 100, lateSubmit: true }); setAttachmentFile(null); setLinks([]); }}>
+                                    onClick={() => { setFormData({ title: "", course: "", description: "", dueDate: "", dueTime: "23:59", totalMarks: 100, lateSubmit: true }); setAttachmentFiles([]); setLinks([]); }}>
                                     Clear
                                 </button>
                                 <button type="submit" className="asgn-btn primary" disabled={submitting}>
