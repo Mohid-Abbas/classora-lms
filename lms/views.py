@@ -209,13 +209,22 @@ class QuestionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        quiz_id = self.request.query_params.get('quiz')
+        
         if user.role == "ADMIN":
-            return self.queryset.filter(quiz__course__institute=user.institute)
+            qs = self.queryset.filter(quiz__course__institute=user.institute)
         elif user.role == "TEACHER":
-            return self.queryset.filter(quiz__course__teachers=user)
+            qs = self.queryset.filter(quiz__course__teachers=user)
         elif user.role == "STUDENT":
-            return self.queryset.filter(quiz__course__students=user, quiz__is_published=True)
-        return self.queryset.none()
+            qs = self.queryset.filter(quiz__course__students=user, quiz__is_published=True)
+        else:
+            return self.queryset.none()
+        
+        # Filter by quiz if provided (critical for quiz isolation)
+        if quiz_id:
+            qs = qs.filter(quiz_id=quiz_id)
+        
+        return qs
 
     def _validate_quiz_ownership(self, quiz_id):
         from rest_framework.exceptions import PermissionDenied, ValidationError
