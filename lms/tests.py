@@ -468,3 +468,47 @@ class QuizIsolationTests(TestCase):
         resp = client.get("/api/lms/quiz-attempts/")
         student_ids = [a["student"] for a in resp.data]
         self.assertNotIn(self.student_a1.id, student_ids)
+
+    # ──────────────────────────────────────────────────
+    # 10. QUESTION LIST ISOLATION (CRITICAL BUG FIX)
+    # ──────────────────────────────────────────────────
+
+    def test_questions_filtered_by_quiz_parameter(self):
+        """When quiz parameter is provided, only questions from that quiz should be returned."""
+        # Create extra questions in different quizzes
+        Question.objects.create(quiz=self.quiz_a1, question_type="MCQ", text="Math Q2?", options=["A","B"], correct_answer="0", points=1)
+        Question.objects.create(quiz=self.quiz_a2, question_type="MCQ", text="Physics Q1?", options=["A","B"], correct_answer="0", points=1)
+        Question.objects.create(quiz=self.quiz_a2, question_type="MCQ", text="Physics Q2?", options=["A","B"], correct_answer="0", points=1)
+        
+        client = APIClient()
+        client.force_authenticate(self.student_a1)
+        
+        # Get questions for quiz_a1 only
+        resp = client.get(f"/api/lms/questions/?quiz={self.quiz_a1.id}")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        question_texts = [q["text"] for q in resp.data]
+        
+        # Should only see quiz_a1 questions (1+1? and Math Q2?), not quiz_a2 questions
+        self.assertIn("1+1?", question_texts)
+        self.assertIn("Math Q2?", question_texts)
+        self.assertNotIn("Physics Q1?", question_texts)
+        self.assertNotIn("Physics Q2?", question_texts)
+        self.assertEqual(len(question_texts), 2)
+
+    def test_questions_from_other_quizzes_not_leaked(self):
+        """Ensure students cannot see questions from quizzes they didn't open."""
+        client = APIClient()
+        client.force_authenticate(self.student_a1)
+        
+        # Without quiz parameter - should get all questions from accessible quizzes
+        resp_all = client.get("/api/lms/questions/")
+        
+        # With quiz parameter - should only get questions from that specific quiz
+        resp_filtered = client.get(f"/api/lms/questions/?quiz={self.quiz_a1.id}")
+        
+        # The filtered response should have fewer or equal questions than unfiltered
+        self.assertLessEqual(len(resp_filtered.data), len(resp_all.data))
+        
+        # All returned questions should belong to quiz_a1
+        for q in resp_filtered.data:
+            self.assertEqual(q["quiz"], self.quiz_a1.id)
