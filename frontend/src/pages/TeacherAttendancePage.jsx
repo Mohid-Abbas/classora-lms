@@ -43,36 +43,47 @@ export default function TeacherAttendancePage() {
     const fetchCourseData = async () => {
         setLoading(true);
         try {
-            // Get course details to find enrolled students
-            const courseRes = await apiClient.get(`/api/lms/courses/${selectedCourse}/`);
-            const course = courseRes.data;
-            
-            // Get all students and filter by enrolled
+            // Get all students first
             const studentsRes = await apiClient.get(`/api/users/?role=STUDENT&institute=${user.institute_id}`);
             const allStudents = Array.isArray(studentsRes.data) ? studentsRes.data : (studentsRes.data.results || []);
             
-            // Filter to only enrolled students
-            const enrolledStudents = allStudents.filter(s => 
-                course.students?.includes(s.id)
-            );
+            let enrolledStudents = [];
+            
+            // Try to get course details, but fallback to all students if it fails
+            try {
+                const courseRes = await apiClient.get(`/api/lms/courses/${selectedCourse}/`);
+                const course = courseRes.data;
+                // Check different possible field names for enrolled students
+                const enrolledIds = course.enrolled_students || course.students || course.student_ids || [];
+                enrolledStudents = allStudents.filter(s => enrolledIds.includes(s.id));
+            } catch (courseErr) {
+                console.log("Course detail endpoint failed, using all students", courseErr);
+                // Fallback: use all students (filter by those who have submissions or just show all)
+                enrolledStudents = allStudents;
+            }
             
             setStudents(enrolledStudents);
             
             // Check for existing attendance record for this date
-            const attendanceRes = await apiClient.get(`/api/lms/attendance/?course=${selectedCourse}&date=${date}`);
-            const records = Array.isArray(attendanceRes.data) ? attendanceRes.data : (attendanceRes.data.results || []);
-            
             const init = {};
-            if (records.length > 0) {
-                setExistingRecord(records[0]);
-                // Populate from existing record
-                records[0].entries?.forEach(entry => {
-                    init[entry.student] = { 
-                        status: entry.status || 'PRESENT', 
-                        remarks: entry.remarks || '' 
-                    };
-                });
-            } else {
+            try {
+                const attendanceRes = await apiClient.get(`/api/lms/attendance/?course=${selectedCourse}&date=${date}`);
+                const records = Array.isArray(attendanceRes.data) ? attendanceRes.data : (attendanceRes.data.results || []);
+                
+                if (records.length > 0) {
+                    setExistingRecord(records[0]);
+                    // Populate from existing record
+                    records[0].entries?.forEach(entry => {
+                        init[entry.student] = { 
+                            status: entry.status || 'PRESENT', 
+                            remarks: entry.remarks || '' 
+                        };
+                    });
+                } else {
+                    setExistingRecord(null);
+                }
+            } catch (attErr) {
+                console.log("Attendance fetch failed (may not exist yet)", attErr);
                 setExistingRecord(null);
             }
             
@@ -85,8 +96,8 @@ export default function TeacherAttendancePage() {
             
             setAttendance(init);
         } catch (err) {
-            console.error("Error fetching course data", err);
-            setMessage({ type: "error", text: "Failed to load student data" });
+            console.error("Error fetching course data:", err);
+            setMessage({ type: "error", text: "Failed to load student data. " + (err.response?.status === 404 ? "Course details not found." : "Please try again.") });
         } finally {
             setLoading(false);
         }
