@@ -144,24 +144,86 @@
 .asgn-dropzone-hint p { font-weight: 600; color: #475569; margin: 8px 0 4px; }
 .asgn-dropzone-hint span { font-size: 0.8rem; color: #94a3b8; }
 
+/* Multiple files list */
+.asgn-files-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
 .asgn-file-selected {
     display: flex;
     align-items: center;
-    gap: 12px;
-    font-weight: 600;
-    color: #1e293b;
+    gap: 10px;
+    padding: 12px 16px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
 }
 
-.asgn-file-selected .material-icons-round { color: #2196F3; font-size: 24px; }
+.asgn-file-selected .material-icons-round { 
+    color: #2196F3; 
+    font-size: 22px; 
+}
+
+.asgn-file-selected .file-name {
+    font-weight: 600;
+    color: #1e293b;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.asgn-file-selected .file-size {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 500;
+}
 
 .asgn-remove-file {
-    margin-left: auto;
     background: none;
     border: none;
     cursor: pointer;
     color: #ef4444;
     display: flex;
     align-items: center;
+    padding: 4px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.asgn-remove-file:hover {
+    background: #fee2e2;
+}
+
+.add-more-files {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    border: 2px dashed #cbd5e1;
+    border-radius: 10px;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.add-more-files:hover {
+    border-color: #2196F3;
+    background: #eff6ff;
+    color: #2196F3;
+}
+
+.asgn-dropzone-hint small {
+    display: block;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: #94a3b8;
 }
 
 /* Toggle */
