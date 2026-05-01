@@ -145,12 +145,38 @@ class QuizViewSet(viewsets.ModelViewSet):
             return self.queryset.filter(course__students=user, is_published=True)
         return self.queryset.none()
 
+    def _validate_course_ownership(self, course_id):
+        from rest_framework.exceptions import PermissionDenied, ValidationError
+        user = self.request.user
+        if not course_id:
+            return
+        try:
+            course = Course.objects.get(id=course_id)
+        except Course.DoesNotExist:
+            raise ValidationError({"course": "Course not found."})
+        if user.role == "ADMIN":
+            if course.institute != user.institute:
+                raise PermissionDenied("You can only create quizzes for courses in your institute.")
+        elif user.role == "TEACHER":
+            if user not in course.teachers.all():
+                raise PermissionDenied("You can only create quizzes for courses you teach.")
+        else:
+            raise PermissionDenied("Students cannot create quizzes.")
+
     def perform_create(self, serializer):
+        course_id = serializer.validated_data.get('course')
+        if course_id:
+            course_id = course_id.id if hasattr(course_id, 'id') else course_id
+        self._validate_course_ownership(course_id)
         quiz = serializer.save()
         if quiz.is_published:
             self._notify_students(quiz)
 
     def perform_update(self, serializer):
+        course_id = serializer.validated_data.get('course', serializer.instance.course_id)
+        if course_id:
+            course_id = course_id.id if hasattr(course_id, 'id') else course_id
+        self._validate_course_ownership(course_id)
         old_published = serializer.instance.is_published
         quiz = serializer.save()
         if quiz.is_published and not old_published:
@@ -188,9 +214,40 @@ class QuestionViewSet(viewsets.ModelViewSet):
         elif user.role == "TEACHER":
             return self.queryset.filter(quiz__course__teachers=user)
         elif user.role == "STUDENT":
-            # Students usually shouldn't see all questions if the quiz is active/not published as a review
             return self.queryset.filter(quiz__course__students=user, quiz__is_published=True)
         return self.queryset.none()
+
+    def _validate_quiz_ownership(self, quiz_id):
+        from rest_framework.exceptions import PermissionDenied, ValidationError
+        user = self.request.user
+        if not quiz_id:
+            return
+        try:
+            quiz = Quiz.objects.get(id=quiz_id)
+        except Quiz.DoesNotExist:
+            raise ValidationError({"quiz": "Quiz not found."})
+        if user.role == "ADMIN":
+            if quiz.course.institute != user.institute:
+                raise PermissionDenied("You can only add questions to quizzes in your institute.")
+        elif user.role == "TEACHER":
+            if user not in quiz.course.teachers.all():
+                raise PermissionDenied("You can only add questions to quizzes in courses you teach.")
+        else:
+            raise PermissionDenied("Students cannot create questions.")
+
+    def perform_create(self, serializer):
+        quiz_id = serializer.validated_data.get('quiz')
+        if quiz_id:
+            quiz_id = quiz_id.id if hasattr(quiz_id, 'id') else quiz_id
+        self._validate_quiz_ownership(quiz_id)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        quiz_id = serializer.validated_data.get('quiz', serializer.instance.quiz_id)
+        if quiz_id:
+            quiz_id = quiz_id.id if hasattr(quiz_id, 'id') else quiz_id
+        self._validate_quiz_ownership(quiz_id)
+        serializer.save()
 
 class AttendanceViewSet(viewsets.ModelViewSet):
     queryset = AttendanceRecord.objects.all()
@@ -413,9 +470,27 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         from django.utils import timezone
+        from rest_framework.exceptions import ValidationError, PermissionDenied
         quiz = serializer.validated_data.get('quiz')
         answers = serializer.validated_data.get('answers', {})
         time_taken = serializer.validated_data.get('time_taken_seconds')
+        user = self.request.user
+
+        # Only students can submit attempts
+        if user.role != "STUDENT":
+            raise PermissionDenied("Only students can submit quiz attempts.")
+
+        # Student must be enrolled in the quiz's course
+        if not quiz.course.students.filter(id=user.id).exists():
+            raise PermissionDenied("You are not enrolled in this course.")
+
+        # Quiz must be active/published
+        if not quiz.is_active():
+            raise ValidationError({"quiz": "This quiz is not currently available for submission."})
+
+        # Prevent duplicate attempts
+        if QuizAttempt.objects.filter(quiz=quiz, student=user).exists():
+            raise ValidationError({"quiz": "You have already submitted an attempt for this quiz."})
 
         questions = quiz.questions.all()
         total_marks = sum(q.points for q in questions)
@@ -429,7 +504,7 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
             # SHORT_ANSWER: teacher marks manually
 
         attempt = serializer.save(
-            student=self.request.user,
+            student=user,
             score=score,
             total_marks=total_marks,
             time_taken_seconds=time_taken
@@ -438,14 +513,31 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
         # Notify student of their score
         percentage = round((score / total_marks) * 100, 1) if total_marks > 0 else 0
         Notification.objects.create(
-            user=self.request.user,
+            user=user,
             title="Quiz Submitted",
             message=f"You scored {score}/{total_marks} ({percentage}%) on '{quiz.title}'.",
         )
 
+    def perform_update(self, serializer):
+        from rest_framework.exceptions import PermissionDenied
+        if self.request.user.role == "STUDENT":
+            raise PermissionDenied("Students cannot modify quiz attempts after submission.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        from rest_framework.exceptions import PermissionDenied
+        if self.request.user.role == "STUDENT":
+            raise PermissionDenied("Students cannot delete quiz attempts.")
+        if self.request.user.role == "TEACHER" and self.request.user not in instance.quiz.course.teachers.all():
+            raise PermissionDenied("You can only delete attempts for quizzes in your courses.")
+        instance.delete()
+
     @action(detail=True, methods=['patch'])
     def grade(self, request, pk=None):
         """Teacher manually grades a short-answer attempt."""
+        from rest_framework.exceptions import PermissionDenied
+        if request.user.role not in ("TEACHER", "ADMIN"):
+            raise PermissionDenied("Only teachers can grade quiz attempts.")
         attempt = self.get_object()
         score = request.data.get('score')
         if score is not None:
