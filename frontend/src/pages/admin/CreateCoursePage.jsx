@@ -2,13 +2,15 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../components/DashboardLayout";
 import { apiClient } from "../../api/client";
-import "./AdminCourse.css";
+import "./CreateCoursePage.css";
 
 export default function CreateCoursePage() {
     const navigate = useNavigate();
     const [user] = useState(JSON.parse(localStorage.getItem("current_user") || "{}"));
     const [teachers, setTeachers] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [currentStep, setCurrentStep] = useState(1);
+    const totalSteps = 4;
 
     const [formData, setFormData] = useState({
         name: "",
@@ -22,7 +24,7 @@ export default function CreateCoursePage() {
         duration_weeks: 16,
         max_students: 50,
         is_published: false,
-        assigned_teachers: [], // IDs
+        assigned_teachers: [],
     });
 
     const [submitting, setSubmitting] = useState(false);
@@ -89,194 +91,290 @@ export default function CreateCoursePage() {
         }
     };
 
-    return (
-        <DashboardLayout user={user}>
-            <div className="course-page-container">
-                <h2 className="section-title">CREATE NEW COURSE</h2>
-                <div className="title-divider"></div>
+    const steps = [
+        { num: 1, title: "Basic Info", icon: "info" },
+        { num: 2, title: "Schedule", icon: "calendar_today" },
+        { num: 3, title: "Teachers", icon: "person_add" },
+        { num: 4, title: "Settings", icon: "settings" }
+    ];
 
-                {message.text && (
-                    <div className={`pill-error-msg ${message.type === 'success' ? 'success-msg' : ''}`} style={{ marginBottom: '30px' }}>
-                        {message.text}
+    const nextStep = () => setCurrentStep(s => Math.min(s + 1, totalSteps));
+    const prevStep = () => setCurrentStep(s => Math.max(s - 1, 1));
+
+    const renderStep = () => {
+        switch(currentStep) {
+            case 1:
+                return (
+                    <div className="step-content">
+                        <h3 className="step-title">Course Information</h3>
+                        <div className="form-grid">
+                            <div className="form-field full-width">
+                                <label>Course Name *</label>
+                                <input 
+                                    name="name" 
+                                    placeholder="e.g., Introduction to Computer Science" 
+                                    value={formData.name} 
+                                    onChange={handleInputChange} 
+                                    required 
+                                />
+                            </div>
+                            <div className="form-field">
+                                <label>Course Code *</label>
+                                <input 
+                                    name="code" 
+                                    placeholder="e.g., CS101" 
+                                    value={formData.code} 
+                                    onChange={handleInputChange} 
+                                    required 
+                                />
+                            </div>
+                            <div className="form-field">
+                                <label>Department *</label>
+                                <select name="department" value={formData.department} onChange={handleInputChange} required>
+                                    <option value="">Select Department</option>
+                                    {departments.map(d => (
+                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-field full-width">
+                                <label>Description</label>
+                                <textarea 
+                                    name="description" 
+                                    placeholder="Course overview, learning objectives, prerequisites..." 
+                                    value={formData.description} 
+                                    onChange={handleInputChange}
+                                    rows="4"
+                                />
+                            </div>
+                        </div>
                     </div>
-                )}
-
-                <div className="course-grid-layout">
-                    {/* Main Form */}
-                    <form onSubmit={handleSubmit} className="course-main-form">
-                        <div className="form-row">
-                            <div className="form-group flex-2">
-                                <label>Course Name:</label>
-                                <div className="pill-input-wrapper">
-                                    <input name="name" placeholder="e.g., Introduction to Psychology" value={formData.name} onChange={handleInputChange} required />
-                                </div>
+                );
+            case 2:
+                return (
+                    <div className="step-content">
+                        <h3 className="step-title">Schedule & Section</h3>
+                        <div className="form-grid">
+                            <div className="form-field">
+                                <label>Semester *</label>
+                                <select name="semester" value={formData.semester} onChange={handleInputChange}>
+                                    <option value="Fall">Fall</option>
+                                    <option value="Spring">Spring</option>
+                                    <option value="Summer">Summer</option>
+                                    <option value="Winter">Winter</option>
+                                </select>
                             </div>
-                            <div className="form-group flex-1">
-                                <label>Course Code:</label>
-                                <div className="pill-input-wrapper">
-                                    <input name="code" placeholder="PSY101" value={formData.code} onChange={handleInputChange} required />
-                                </div>
+                            <div className="form-field">
+                                <label>Academic Year *</label>
+                                <input 
+                                    name="academic_year" 
+                                    placeholder="e.g., 2025-2026" 
+                                    value={formData.academic_year} 
+                                    onChange={handleInputChange} 
+                                    required 
+                                />
                             </div>
-                        </div>
-
-                        <div className="form-row">
-                            <div className="form-group flex-1">
-                                <label>Department:</label>
-                                <div className="pill-input-wrapper">
-                                    <select name="department" value={formData.department} onChange={handleInputChange} required>
-                                        <option value="">Select Department</option>
-                                        {departments.map(d => (
-                                            <option key={d.id} value={d.id}>{d.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                            <div className="form-field">
+                                <label>Section *</label>
+                                <input 
+                                    name="section" 
+                                    placeholder="e.g., A, B, C" 
+                                    value={formData.section} 
+                                    onChange={handleInputChange} 
+                                    required 
+                                />
                             </div>
-                            <div className="form-group flex-1">
-                                <label>Semester:</label>
-                                <div className="pill-input-wrapper">
-                                    <select name="semester" value={formData.semester} onChange={handleInputChange}>
-                                        <option value="Fall">Fall</option>
-                                        <option value="Spring">Spring</option>
-                                        <option value="Summer">Summer</option>
-                                        <option value="Winter">Winter</option>
-                                    </select>
-                                </div>
+                            <div className="form-field">
+                                <label>Duration (Weeks)</label>
+                                <input type="number" name="duration_weeks" value={formData.duration_weeks} onChange={handleInputChange} />
                             </div>
                         </div>
-
-                        <div className="form-row">
-                            <div className="form-group flex-1">
-                                <label>Academic Year:</label>
-                                <div className="pill-input-wrapper">
-                                    <input name="academic_year" placeholder="e.g., 2025-2026" value={formData.academic_year} onChange={handleInputChange} required />
+                    </div>
+                );
+            case 3:
+                return (
+                    <div className="step-content">
+                        <h3 className="step-title">Assign Teachers</h3>
+                        <p className="step-subtitle">Select teachers to assign to this course</p>
+                        <div className="teachers-selection">
+                            {teachers.map(t => (
+                                <div 
+                                    key={t.id} 
+                                    className={`teacher-select-card ${formData.assigned_teachers.includes(t.id) ? 'selected' : ''}`}
+                                    onClick={() => handleTeacherToggle(t.id)}
+                                >
+                                    <div className="teacher-select-avatar">
+                                        <span className="material-icons-round">person</span>
+                                    </div>
+                                    <div className="teacher-select-info">
+                                        <div className="teacher-select-name">{t.full_name}</div>
+                                        <div className="teacher-select-email">{t.email}</div>
+                                    </div>
+                                    <div className="teacher-select-check">
+                                        <span className="material-icons-round">
+                                            {formData.assigned_teachers.includes(t.id) ? 'check_circle' : 'radio_button_unchecked'}
+                                        </span>
+                                    </div>
                                 </div>
+                            ))}
+                            {teachers.length === 0 && (
+                                <div className="empty-teachers">No teachers available. Add teachers first.</div>
+                            )}
+                        </div>
+                    </div>
+                );
+            case 4:
+                return (
+                    <div className="step-content">
+                        <h3 className="step-title">Course Settings</h3>
+                        <div className="form-grid">
+                            <div className="form-field">
+                                <label>Credits</label>
+                                <input type="number" name="credits" value={formData.credits} onChange={handleInputChange} />
                             </div>
-                            <div className="form-group flex-1">
-                                <label>Section:</label>
-                                <div className="pill-input-wrapper">
-                                    <input name="section" placeholder="e.g., A, B, C" value={formData.section} onChange={handleInputChange} required />
-                                </div>
+                            <div className="form-field">
+                                <label>Max Students</label>
+                                <input type="number" name="max_students" value={formData.max_students} onChange={handleInputChange} />
                             </div>
                         </div>
-
-                        <div className="form-group">
-                            <label>Assign Teachers:</label>
-                            <div className="teacher-chips-container pill-input-wrapper multi-select">
-                                {formData.assigned_teachers.map(tid => {
-                                    const t = teachers.find(teacher => teacher.id === tid);
-                                    return t ? (
-                                        <div key={tid} className="teacher-chip">
-                                            {t.full_name}
-                                            <span className="material-icons-round chip-close" onClick={() => handleTeacherToggle(tid)}>close</span>
-                                        </div>
-                                    ) : null;
-                                })}
-                                <div className="add-teacher-btn">
-                                    <span className="material-icons-round">add</span>
-                                    Add more...
-                                    <select className="hidden-select" onChange={(e) => handleTeacherToggle(parseInt(e.target.value))}>
-                                        <option value="">Select Teacher</option>
-                                        {teachers.filter(t => !formData.assigned_teachers.includes(t.id)).map(t => (
-                                            <option key={t.id} value={t.id}>{t.full_name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="form-group">
-                            <label>Course Icon:</label>
-                            <div className="upload-placeholder pill-input-wrapper">
-                                <span className="material-icons-round">cloud_upload</span>
-                                [Upload]
-                            </div>
-                        </div>
-
-                        <div className="form-group">
-                            <label>Course Description:</label>
-                            <div className="pill-input-wrapper" style={{ borderRadius: '25px', padding: '15px' }}>
-                                <textarea name="description" placeholder="Course overview, learning objectives, syllabus..." value={formData.description} onChange={handleInputChange} style={{ height: '120px', resize: 'none', border: 'none', width: '100%', background: 'transparent' }} />
-                            </div>
-                        </div>
-
-                        <div className="form-group">
-                            <label>Prerequisites:</label>
-                            <div className="pill-input-wrapper">
-                                <input placeholder="None / Select courses" />
-                            </div>
-                        </div>
-
-                        <div className="form-group">
-                            <label>Course Visibility:</label>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '10px 20px' }}>
+                        <div className="publish-toggle">
+                            <label className="toggle-label">
                                 <input
                                     type="checkbox"
                                     name="is_published"
                                     checked={formData.is_published}
                                     onChange={handleInputChange}
-                                    style={{ width: '22px', height: '22px', accentColor: '#2196F3', cursor: 'pointer' }}
                                 />
-                                <span style={{ fontSize: '1rem', fontWeight: 600, color: '#475569' }}>
-                                    Publish course immediately (visible to students)
+                                <span className="toggle-switch"></span>
+                                <span className="toggle-text">
+                                    <span className="material-icons-round">{formData.is_published ? 'visibility' : 'visibility_off'}</span>
+                                    {formData.is_published ? "Published (visible to students)" : "Draft (not visible to students)"}
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <DashboardLayout user={user}>
+            <div className="create-course-container">
+                <div className="create-course-header">
+                    <h1>Create New Course</h1>
+                    <p>Set up a new course for your institute</p>
+                </div>
+
+                {message.text && (
+                    <div className={`message-banner ${message.type}`}>
+                        {message.text}
+                        <button onClick={() => setMessage({ type: "", text: "" })}>×</button>
+                    </div>
+                )}
+
+                {/* Progress Steps */}
+                <div className="steps-indicator">
+                    {steps.map(step => (
+                        <div 
+                            key={step.num} 
+                            className={`step-item ${currentStep === step.num ? 'active' : ''} ${currentStep > step.num ? 'completed' : ''}`}
+                        >
+                            <div className="step-icon">
+                                <span className="material-icons-round">
+                                    {currentStep > step.num ? 'check' : step.icon}
                                 </span>
                             </div>
-                        </div>
-
-                        <div className="settings-row">
-                            <div className="settings-item">
-                                <label>Credits:</label>
-                                <div className="pill-input-wrapper small"><input type="number" name="credits" value={formData.credits} onChange={handleInputChange} /></div>
-                            </div>
-                            <div className="settings-item">
-                                <label>Duration (Weeks):</label>
-                                <div className="pill-input-wrapper small"><input type="number" name="duration_weeks" value={formData.duration_weeks} onChange={handleInputChange} /></div>
-                            </div>
-                            <div className="settings-item">
-                                <label>Max Students:</label>
-                                <div className="pill-input-wrapper small"><input type="number" name="max_students" value={formData.max_students} onChange={handleInputChange} /></div>
+                            <div className="step-text">
+                                <span className="step-number">Step {step.num}</span>
+                                <span className="step-title">{step.title}</span>
                             </div>
                         </div>
+                    ))}
+                </div>
 
-                        <div className="form-actions" style={{ marginTop: '50px', gap: '25px' }}>
-                            <button type="button" className="pill-submit-btn secondary" style={{ width: '220px' }} onClick={() => navigate("/admin")}>CANCEL</button>
-                            <button type="submit" className="pill-submit-btn primary" style={{ width: '320px' }} disabled={submitting}>
-                                {submitting ? "CREATING..." : "CREATE COURSE"}
+                <form onSubmit={handleSubmit} className="course-wizard-form">
+                    {/* Step Content */}
+                    {renderStep()}
+
+                    {/* Navigation Buttons */}
+                    <div className="wizard-navigation">
+                        <button 
+                            type="button" 
+                            className="nav-btn prev"
+                            onClick={prevStep}
+                            disabled={currentStep === 1}
+                        >
+                            <span className="material-icons-round">arrow_back</span>
+                            Previous
+                        </button>
+                        
+                        {currentStep < totalSteps ? (
+                            <button 
+                                type="button" 
+                                className="nav-btn next"
+                                onClick={nextStep}
+                            >
+                                Next
+                                <span className="material-icons-round">arrow_forward</span>
                             </button>
-                        </div>
-                    </form>
+                        ) : (
+                            <button 
+                                type="submit" 
+                                className="nav-btn submit"
+                                disabled={submitting}
+                            >
+                                {submitting ? (
+                                    <>
+                                        <span className="material-icons-round spin">sync</span>
+                                        Creating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="material-icons-round">check</span>
+                                        Create Course
+                                    </>
+                                )}
+                            </button>
+                        )}
+                    </div>
+                </form>
 
-                    {/* Preview Sidebar */}
-                    <div className="course-preview-area">
-                        <div className="preview-label">Course Preview:</div>
-                        <div className="dashboard-card preview-card">
-                            <div className="preview-header">
-                                <div className="preview-icon">
-                                    <span className="material-icons-round">import_contacts</span>
-                                </div>
-                                <div className="preview-meta">
-                                    <div className="preview-code">{formData.code || "CODE101"}</div>
-                                    <div className="preview-name">{formData.name || "Course Name"}</div>
-                                </div>
-                            </div>
-                            <div className="preview-details">
-                                <div className="preview-stat">
-                                    <span className="material-icons-round" style={{ fontSize: '16px', verticalAlign: 'middle', marginRight: '5px' }}>groups</span>
-                                    Teachers: {formData.assigned_teachers.length} assigned
-                                </div>
-                                <div className="preview-stat">
-                                    <span className="material-icons-round" style={{ fontSize: '16px', verticalAlign: 'middle', marginRight: '5px' }}>calendar_today</span>
-                                    {formData.semester} {formData.academic_year} (Sec {formData.section})
-                                </div>
-                                <div className="preview-stat">
-                                    <span className="material-icons-round" style={{ fontSize: '16px', verticalAlign: 'middle', marginRight: '5px' }}>layers</span>
-                                    Credits: {formData.credits}
-                                </div>
-                                <div className="status-badge">
-                                    <span className="material-icons-round" style={{ fontSize: '16px', verticalAlign: 'middle', marginRight: '5px' }}>check_circle</span>
-                                    {formData.is_published ? "Will be Public" : "Draft Mode"}
-                                </div>
-                            </div>
+                {/* Live Preview Card */}
+                <div className="course-preview-card">
+                    <div className="preview-header">
+                        <div className="preview-icon">
+                            <span className="material-icons-round">school</span>
                         </div>
+                        <div className="preview-info">
+                            <h4>{formData.name || "Course Name"}</h4>
+                            <p>{formData.code || "CODE101"} • {formData.semester} {formData.academic_year}</p>
+                        </div>
+                    </div>
+                    <div className="preview-details">
+                        <div className="preview-item">
+                            <span className="material-icons-round">business</span>
+                            <span>{departments.find(d => d.id === parseInt(formData.department))?.name || "No Department"}</span>
+                        </div>
+                        <div className="preview-item">
+                            <span className="material-icons-round">group</span>
+                            <span>Section {formData.section}</span>
+                        </div>
+                        <div className="preview-item">
+                            <span className="material-icons-round">person</span>
+                            <span>{formData.assigned_teachers.length} Teachers</span>
+                        </div>
+                        <div className="preview-item">
+                            <span className="material-icons-round">schedule</span>
+                            <span>{formData.duration_weeks} Weeks • {formData.credits} Credits</span>
+                        </div>
+                    </div>
+                    <div className={`preview-status ${formData.is_published ? 'published' : 'draft'}`}>
+                        <span className="material-icons-round">
+                            {formData.is_published ? 'visibility' : 'visibility_off'}
+                        </span>
+                        {formData.is_published ? "Published" : "Draft"}
                     </div>
                 </div>
             </div>
