@@ -28,7 +28,9 @@ export default function AnalyticsPage() {
         try {
             const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
             const instituteId = currentUser.institute_id;
+            const isTeacher = currentUser.role === "TEACHER";
             
+            // Base API calls
             const [coursesRes, usersRes, assignmentsRes, quizzesRes, submissionsRes, attemptsRes] = await Promise.all([
                 apiClient.get("/api/lms/courses/"),
                 apiClient.get(`/api/users/?institute=${instituteId}`),
@@ -38,12 +40,26 @@ export default function AnalyticsPage() {
                 apiClient.get("/api/lms/quiz-attempts/")
             ]);
 
-            const courses = Array.isArray(coursesRes.data) ? coursesRes.data : (coursesRes.data.results || []);
+            let courses = Array.isArray(coursesRes.data) ? coursesRes.data : (coursesRes.data.results || []);
             const users = Array.isArray(usersRes.data) ? usersRes.data : (usersRes.data.results || []);
-            const assignments = Array.isArray(assignmentsRes.data) ? assignmentsRes.data : (assignmentsRes.data.results || []);
-            const quizzes = Array.isArray(quizzesRes.data) ? quizzesRes.data : (quizzesRes.data.results || []);
-            const submissions = Array.isArray(submissionsRes.data) ? submissionsRes.data : (submissionsRes.data.results || []);
+            let assignments = Array.isArray(assignmentsRes.data) ? assignmentsRes.data : (assignmentsRes.data.results || []);
+            let quizzes = Array.isArray(quizzesRes.data) ? quizzesRes.data : (quizzesRes.data.results || []);
+            let submissions = Array.isArray(submissionsRes.data) ? submissionsRes.data : (submissionsRes.data.results || []);
             const attempts = Array.isArray(attemptsRes.data) ? attemptsRes.data : (attemptsRes.data.results || []);
+
+            // For teachers, filter to only their courses
+            if (isTeacher) {
+                courses = courses.filter(c => 
+                    c.teachers?.includes(currentUser.id) || c.teacher?.id === currentUser.id
+                );
+                // Filter assignments and quizzes to only those in teacher's courses
+                const courseIds = courses.map(c => c.id);
+                assignments = assignments.filter(a => courseIds.includes(a.course));
+                quizzes = quizzes.filter(q => courseIds.includes(q.course));
+                // Filter submissions to only those for teacher's assignments
+                const assignmentIds = assignments.map(a => a.id);
+                submissions = submissions.filter(s => assignmentIds.includes(s.assignment));
+            }
 
             const students = users.filter(u => u.role === "STUDENT");
             const teachers = users.filter(u => u.role === "TEACHER");
@@ -54,13 +70,21 @@ export default function AnalyticsPage() {
                 ? Math.round(gradedSubmissions.reduce((acc, s) => acc + (s.score / s.assignment_total_marks * 100), 0) / gradedSubmissions.length)
                 : 0;
 
-            // Calculate completion rate
-            const totalPossibleSubmissions = students.length * assignments.length;
+            // Calculate completion rate (for teacher's view - based on their students)
+            const enrolledStudentIds = new Set();
+            courses.forEach(c => {
+                c.students?.forEach(sid => enrolledStudentIds.add(sid));
+            });
+            const enrolledCount = enrolledStudentIds.size || students.length;
+            const totalPossibleSubmissions = enrolledCount * assignments.length;
             const completionRate = totalPossibleSubmissions > 0 
                 ? Math.round((submissions.length / totalPossibleSubmissions) * 100)
                 : 0;
 
-            // Department stats
+            // Calculate total students in teacher's courses
+            const totalEnrolledStudents = enrolledStudentIds.size;
+
+            // Department stats (admin only)
             const deptStats = {};
             courses.forEach(c => {
                 const deptId = c.department || 'none';
@@ -72,7 +96,7 @@ export default function AnalyticsPage() {
                 deptStats[deptId].teachers += c.teachers?.length || 0;
             });
 
-            // Top courses by enrollment
+            // Top courses by enrollment (teacher's courses)
             const topCourses = [...courses]
                 .sort((a, b) => (b.students?.length || 0) - (a.students?.length || 0))
                 .slice(0, 5)
@@ -83,7 +107,7 @@ export default function AnalyticsPage() {
                     teachers: c.teachers?.length || 0
                 }));
 
-            // Recent activity (combine submissions and attempts)
+            // Recent activity (teacher's submissions)
             const recentSubmissions = submissions.slice(-5).map(s => ({
                 type: 'submission',
                 student: students.find(u => u.id === s.student)?.full_name || 'Unknown',
@@ -94,7 +118,7 @@ export default function AnalyticsPage() {
 
             setAnalytics({
                 totalCourses: courses.length,
-                totalStudents: students.length,
+                totalStudents: isTeacher ? totalEnrolledStudents : students.length,
                 totalTeachers: teachers.length,
                 totalAssignments: assignments.length,
                 totalQuizzes: quizzes.length,
@@ -128,10 +152,10 @@ export default function AnalyticsPage() {
         { label: "Faculty Members", value: analytics.totalTeachers.toString(), color: "#ff9800", icon: "person" },
         { label: "Avg. Score", value: `${analytics.avgSubmissionScore}%`, color: "#7c3aed", icon: "grade" },
     ] : [
-        { label: "My Courses", value: "--", growth: "", color: "#2196F3", icon: "import_contacts" },
-        { label: "Assignments", value: "--", growth: "", color: "#4caf50", icon: "assignment" },
-        { label: "Quizzes", value: "--", growth: "", color: "#ff9800", icon: "quiz" },
-        { label: "Attendance", value: "--", growth: "", color: "#ef4444", icon: "check_circle" },
+        { label: "My Courses", value: analytics.totalCourses.toString(), growth: "", color: "#2196F3", icon: "import_contacts" },
+        { label: "Enrolled Students", value: analytics.totalStudents.toString(), growth: "", color: "#4caf50", icon: "group" },
+        { label: "Assignments", value: analytics.totalAssignments.toString(), growth: "", color: "#ff9800", icon: "assignment" },
+        { label: "Avg. Score", value: `${analytics.avgSubmissionScore}%`, growth: "", color: "#7c3aed", icon: "grade" },
     ];
 
     // Calculate performance distribution from actual data
