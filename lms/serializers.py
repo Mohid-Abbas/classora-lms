@@ -42,6 +42,8 @@ class AssignmentSerializer(serializers.ModelSerializer):
 class QuizSerializer(serializers.ModelSerializer):
     question_count = serializers.IntegerField(source='questions.count', read_only=True)
     is_active = serializers.SerializerMethodField()
+    course_name = serializers.ReadOnlyField(source="course.name")
+    course_code = serializers.ReadOnlyField(source="course.code")
 
     class Meta:
         model = Quiz
