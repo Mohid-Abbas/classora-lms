@@ -622,10 +622,39 @@ class AnnouncementCommentViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        user = self.request.user
         announcement_id = self.request.query_params.get('announcement')
+        
+        # Admin can see all comments in their institute
+        if user.role == "ADMIN":
+            base_qs = self.queryset.filter(announcement__institute=user.institute)
+            if announcement_id:
+                return base_qs.filter(announcement_id=announcement_id)
+            return base_qs
+        
+        # For non-admins, filter by announcement visibility
+        from django.db.models import Q
+        from .models import Announcement
+        
+        # Get announcements this user can see
+        visible_announcements = Announcement.objects.filter(institute=user.institute)
+        if user.role == "TEACHER":
+            visible_announcements = visible_announcements.filter(
+                Q(target_role__in=['ALL', 'TEACHER']) | 
+                Q(course__teachers=user) |
+                Q(target_user=user)
+            )
+        elif user.role == "STUDENT":
+            visible_announcements = visible_announcements.filter(
+                Q(target_role__in=['ALL', 'STUDENT']) | 
+                Q(course__students=user) |
+                Q(target_user=user)
+            )
+        
+        base_qs = self.queryset.filter(announcement__in=visible_announcements)
         if announcement_id:
-            return self.queryset.filter(announcement_id=announcement_id)
-        return self.queryset.none()
+            return base_qs.filter(announcement_id=announcement_id)
+        return base_qs
 
     def perform_create(self, serializer):
         comment = serializer.save(user=self.request.user)
