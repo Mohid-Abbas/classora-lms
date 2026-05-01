@@ -90,6 +90,26 @@ export default function CoursesPage() {
         }
     };
 
+    const deleteAssignment = async (id) => {
+        if (!window.confirm("Delete this assignment? All student submissions will also be deleted.")) return;
+        try {
+            await apiClient.delete(`/api/lms/assignments/${id}/`);
+            refreshData();
+        } catch(err) {
+            alert("Failed to delete assignment: " + (err.response?.data?.detail || "Unknown error"));
+        }
+    };
+
+    const deleteQuiz = async (id) => {
+        if (!window.confirm("Delete this quiz? All student attempts will also be deleted.")) return;
+        try {
+            await apiClient.delete(`/api/lms/quizzes/${id}/`);
+            refreshData();
+        } catch(err) {
+            alert("Failed to delete quiz: " + (err.response?.data?.detail || "Unknown error"));
+        }
+    };
+
     if (user.role === 'ADMIN') return <CreateCoursePage />;
     if (loading) return <DashboardLayout user={user}><div style={{ padding: '80px', textAlign: 'center', color: '#94a3b8' }}>Loading...</div></DashboardLayout>;
 
@@ -252,6 +272,10 @@ export default function CoursesPage() {
                                                 missing:   { color: "#ef4444", label: "Missing",   icon: "error" },
                                             };
                                             const s = statusMap[status];
+                                            const isCourseTeacher = selectedCourse?.teachers?.includes?.(user.id) || 
+                                                                   selectedCourse?.teacher?.id === user.id ||
+                                                                   user.role === "TEACHER";
+                                            
                                             return (
                                                 <div key={`a-${item.id}`} className="cs-stream-card" style={{ borderLeft: `4px solid ${s.color}` }}>
                                                     <div className="cs-stream-card-header">
@@ -262,7 +286,27 @@ export default function CoursesPage() {
                                                             <div className="cs-stream-eyebrow">Assignment</div>
                                                             <div className="cs-stream-card-title">{item.title}</div>
                                                         </div>
-                                                        <span style={{ background: `${s.color}20`, color: s.color, padding: '3px 12px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 800 }}>{s.label}</span>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <span style={{ background: `${s.color}20`, color: s.color, padding: '3px 12px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 800 }}>{s.label}</span>
+                                                            {!isStudent && (
+                                                                <div style={{ display: 'flex', gap: '4px' }}>
+                                                                    <button 
+                                                                        onClick={() => navigate('/assignments', { state: { editAssignment: item } })}
+                                                                        style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
+                                                                        title="Edit assignment"
+                                                                    >
+                                                                        <span className="material-icons-round" style={{ fontSize: 18 }}>edit</span>
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => deleteAssignment(item.id)}
+                                                                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                                                                        title="Delete assignment"
+                                                                    >
+                                                                        <span className="material-icons-round" style={{ fontSize: 18 }}>delete_outline</span>
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <p className="cs-stream-desc">{item.description}</p>
                                                     <div className="cs-stream-meta">
@@ -314,7 +358,27 @@ export default function CoursesPage() {
                                                             <div className="cs-stream-eyebrow">Quiz</div>
                                                             <div className="cs-stream-card-title">{item.title}</div>
                                                         </div>
-                                                        <span style={{ background: `${s.color}20`, color: s.color, padding: '3px 12px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 800 }}>{s.label}</span>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <span style={{ background: `${s.color}20`, color: s.color, padding: '3px 12px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 800 }}>{s.label}</span>
+                                                            {!isStudent && (
+                                                                <div style={{ display: 'flex', gap: '4px' }}>
+                                                                    <button 
+                                                                        onClick={() => navigate('/quizzes', { state: { editQuiz: item } })}
+                                                                        style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
+                                                                        title="Edit quiz"
+                                                                    >
+                                                                        <span className="material-icons-round" style={{ fontSize: 18 }}>edit</span>
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => deleteQuiz(item.id)}
+                                                                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                                                                        title="Delete quiz"
+                                                                    >
+                                                                        <span className="material-icons-round" style={{ fontSize: 18 }}>delete_outline</span>
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     {item.instructions && <p className="cs-stream-desc">{item.instructions}</p>}
                                                     <div className="cs-stream-meta">
