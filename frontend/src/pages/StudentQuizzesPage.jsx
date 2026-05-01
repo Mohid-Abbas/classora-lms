@@ -107,11 +107,20 @@ export default function StudentQuizzesPage() {
             fetchAll();
         } catch (err) {
             const detail = err?.response?.data;
-            if (detail && JSON.stringify(detail).includes("unique")) {
+            const detailStr = detail ? (typeof detail === 'string' ? detail : JSON.stringify(detail)) : "";
+            if (detailStr.includes("already submitted") || detailStr.includes("unique")) {
                 setMessage({ type: "error", text: "You have already submitted this quiz." });
                 closeQuiz();
+                fetchAll();
+            } else if (detailStr.includes("not currently available")) {
+                setMessage({ type: "error", text: "This quiz is no longer available for submission." });
+                closeQuiz();
+                fetchAll();
+            } else if (detailStr.includes("not enrolled")) {
+                setMessage({ type: "error", text: "You are not enrolled in this course." });
+                closeQuiz();
             } else {
-                setMessage({ type: "error", text: "Submission failed. Please try again." });
+                setMessage({ type: "error", text: "Submission failed. " + (detailStr || "Please try again.") });
             }
         } finally { setSubmittingQuiz(false); }
     };
@@ -124,8 +133,12 @@ export default function StudentQuizzesPage() {
     const sortedQuizzes = [...quizzes].sort((a, b) => ORDER[getQuizState(a)] - ORDER[getQuizState(b)]);
 
     const quizzesByCourse = {};
+    const courseMeta = {};
     sortedQuizzes.forEach(qz => {
-        if (!quizzesByCourse[qz.course]) quizzesByCourse[qz.course] = [];
+        if (!quizzesByCourse[qz.course]) {
+            quizzesByCourse[qz.course] = [];
+            courseMeta[qz.course] = { name: qz.course_name || `Course #${qz.course}`, code: qz.course_code || "" };
+        }
         quizzesByCourse[qz.course].push(qz);
     });
 
@@ -158,12 +171,12 @@ export default function StudentQuizzesPage() {
                 )}
 
                 {Object.entries(quizzesByCourse).map(([courseId, qzList]) => {
-                    const course = courses.find(c => c.id === parseInt(courseId));
+                    const meta = courseMeta[courseId];
                     return (
                         <div key={courseId} style={{ marginBottom: 36 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1e293b' }}>{course?.name}</span>
-                                {course?.code && <span style={{ background: '#f5f3ff', color: '#7c3aed', padding: '2px 10px', borderRadius: 20, fontSize: '0.78rem', fontWeight: 700 }}>{course.code}</span>}
+                                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1e293b' }}>{meta?.name}</span>
+                                {meta?.code && <span style={{ background: '#f5f3ff', color: '#7c3aed', padding: '2px 10px', borderRadius: 20, fontSize: '0.78rem', fontWeight: 700 }}>{meta.code}</span>}
                             </div>
 
                             {qzList.map(qz => {
