@@ -15,7 +15,7 @@ import TeacherAttendancePage from "./pages/TeacherAttendancePage";
 import TeacherLecturePage from "./pages/TeacherLecturePage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
-import DepartmentsPage from "./pages/admin/DepartmentsPage";
+import AdminDepartmentsPage from "./pages/admin/AdminDepartmentsPage";
 import EnrollStudentPage from "./pages/admin/EnrollStudentPage";
 
 function RequireRole({ role, children }) {
@@ -95,7 +95,7 @@ function App() {
         <Route path="/courses" element={<CoursesPage />} />
         <Route path="/departments" element={
           <RequireRole role="ADMIN">
-            <DepartmentsPage />
+            <AdminDepartmentsPage />
           </RequireRole>
         } />
         <Route path="/enrollment" element={
