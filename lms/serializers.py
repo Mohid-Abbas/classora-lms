@@ -18,6 +18,11 @@ class CourseSerializer(serializers.ModelSerializer):
         model = Course
         fields = "__all__"
         read_only_fields = ['institute']
+        extra_kwargs = {
+            'teachers': {'required': False},
+            'students': {'required': False},
+            'section': {'required': False, 'default': 'A'},
+        }
 
 class LectureSerializer(serializers.ModelSerializer):
     class Meta:
