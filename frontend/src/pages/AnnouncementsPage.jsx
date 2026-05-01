@@ -148,8 +148,8 @@ export default function AnnouncementsPage() {
                     <p className="ann-subtitle">Broadcast messages and engage with your classes</p>
                 </div>
 
-                {/* Floating Action Button */}
-                {(user.role !== "STUDENT" || courses.length > 0) && (
+                {/* Admin: Always show side panel, Others: FAB to toggle */}
+                {user.role !== "ADMIN" && (user.role !== "STUDENT" || courses.length > 0) && (
                     <button 
                         className="ann-fab"
                         onClick={() => setShowCreatePanel(!showCreatePanel)}
@@ -159,10 +159,10 @@ export default function AnnouncementsPage() {
                     </button>
                 )}
 
-                <div className={`ann-layout ${showCreatePanel ? 'with-panel' : ''}`}>
-                    {/* LEFT PANEL: Creation Form - Collapsible */}
-                    {showCreatePanel && (user.role !== "STUDENT" || courses.length > 0) && (
-                        <div className="ann-create-panel">
+                <div className={`ann-layout ${showCreatePanel || user.role === 'ADMIN' ? 'with-panel' : ''} ${user.role === 'ADMIN' ? 'admin-layout' : ''}`}>
+                    {/* LEFT PANEL: Creation Form - Always visible for Admin */}
+                    {(showCreatePanel || user.role === 'ADMIN') && (user.role !== "STUDENT" || courses.length > 0) && (
+                        <div className={`ann-create-panel ${user.role === 'ADMIN' ? 'admin-panel' : ''}`}>
                             <h3 className="ann-panel-title">
                                 <span className="material-icons-round">campaign</span> Make an Announcement
                             </h3>
@@ -220,11 +220,13 @@ export default function AnnouncementsPage() {
                                 </div>
 
                                 <div className="ann-form-actions">
-                                    <button type="button" className="ann-cancel-btn" onClick={() => setShowCreatePanel(false)}>
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="ann-submit-btn" disabled={submitting}>
-                                        {submitting ? "Publishing..." : "Post Announcement"}
+                                    {user.role !== 'ADMIN' && (
+                                        <button type="button" className="ann-cancel-btn" onClick={() => setShowCreatePanel(false)}>
+                                            Cancel
+                                        </button>
+                                    )}
+                                    <button type="submit" className={`ann-submit-btn ${user.role === 'ADMIN' ? 'admin-btn' : ''}`} disabled={submitting}>
+                                        {submitting ? "Publishing..." : user.role === 'ADMIN' ? "Broadcast Announcement" : "Post Announcement"}
                                         <span className="material-icons-round">send</span>
                                     </button>
                                 </div>
