@@ -43,21 +43,34 @@ export default function TeacherAttendancePage() {
                     const records = Array.isArray(res.data) ? res.data : (res.data.results || []);
                     setStudentAttendance(records);
                     
-                    // Calculate stats
-                    let present = 0, absent = 0, late = 0, total = 0;
+                    // Calculate per-course stats
+                    const courseStats = {};
                     records.forEach(record => {
                         const entry = record.entries?.find(e => e.student === user.id);
                         if (entry) {
-                            total++;
-                            if (entry.status === 'PRESENT') present++;
-                            else if (entry.status === 'ABSENT') absent++;
-                            else if (entry.status === 'LATE') late++;
+                            const courseId = record.course;
+                            if (!courseStats[courseId]) {
+                                courseStats[courseId] = { present: 0, absent: 0, late: 0, total: 0, records: [] };
+                            }
+                            courseStats[courseId].total++;
+                            courseStats[courseId].records.push({
+                                date: record.date,
+                                status: entry.status,
+                                remarks: entry.remarks
+                            });
+                            if (entry.status === 'PRESENT') courseStats[courseId].present++;
+                            else if (entry.status === 'ABSENT') courseStats[courseId].absent++;
+                            else if (entry.status === 'LATE') courseStats[courseId].late++;
                         }
                     });
-                    setAttendanceStats({
-                        present, absent, late, total,
-                        percentage: total > 0 ? Math.round((present / total) * 100) : 0
+                    
+                    // Calculate percentage for each course
+                    Object.keys(courseStats).forEach(courseId => {
+                        const stats = courseStats[courseId];
+                        stats.percentage = stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0;
                     });
+                    
+                    setAttendanceStats(courseStats);
                 })
                 .catch(err => console.error("Error fetching attendance", err));
         } else {
@@ -311,67 +324,68 @@ export default function TeacherAttendancePage() {
                 {/* STUDENT VIEW */}
                 {isStudent && (
                     <div className="student-attendance-view">
-                        {/* Stats Cards */}
-                        <div className="attendance-stats">
-                            <div className="stat-card">
-                                <span className="stat-value">{attendanceStats.total}</span>
-                                <span className="stat-label">Total Sessions</span>
+                        <h3 className="section-subtitle">My Enrolled Courses - Attendance</h3>
+                        
+                        {studentCourses.length === 0 ? (
+                            <div className="attendance-empty">
+                                <span className="material-icons-round">school</span>
+                                <p>You are not enrolled in any courses.</p>
                             </div>
-                            <div className="stat-card present">
-                                <span className="stat-value">{attendanceStats.present}</span>
-                                <span className="stat-label">Present</span>
-                            </div>
-                            <div className="stat-card absent">
-                                <span className="stat-value">{attendanceStats.absent}</span>
-                                <span className="stat-label">Absent</span>
-                            </div>
-                            <div className="stat-card late">
-                                <span className="stat-value">{attendanceStats.late}</span>
-                                <span className="stat-label">Late</span>
-                            </div>
-                        </div>
-
-                        {/* Attendance Percentage */}
-                        <div className="attendance-percentage-card">
-                            <div className="percentage-circle">
-                                <span className="percentage-value">{attendanceStats.percentage}%</span>
-                            </div>
-                            <span className="percentage-label">Attendance Rate</span>
-                        </div>
-
-                        {/* Attendance History */}
-                        <div className="attendance-history">
-                            <h3>My Attendance History</h3>
-                            {studentAttendance.length === 0 ? (
-                                <div className="attendance-empty">
-                                    <span className="material-icons-round">event_note</span>
-                                    <p>No attendance records found yet.</p>
-                                </div>
-                            ) : (
-                                <div className="attendance-list">
-                                    {studentAttendance.map((record, idx) => {
-                                        const entry = record.entries?.find(e => e.student === user.id);
-                                        if (!entry) return null;
-                                        return (
-                                            <div key={idx} className={`attendance-record-item ${entry.status.toLowerCase()}`}>
-                                                <div className="record-date">
-                                                    <span className="material-icons-round">calendar_today</span>
-                                                    {record.date}
+                        ) : (
+                            <div className="course-attendance-grid">
+                                {studentCourses.map(course => {
+                                    const stats = attendanceStats[course.id] || { present: 0, absent: 0, late: 0, total: 0, percentage: 0, records: [] };
+                                    return (
+                                        <div key={course.id} className="course-attendance-card">
+                                            <div className="course-attendance-header">
+                                                <div className="course-info">
+                                                    <h4>{course.name}</h4>
+                                                    <span className="course-code">{course.code}</span>
                                                 </div>
-                                                <div className="record-status">
-                                                    <span className={`status-badge ${entry.status.toLowerCase()}`}>
-                                                        {entry.status}
-                                                    </span>
-                                                    {entry.remarks && (
-                                                        <span className="record-remarks">{entry.remarks}</span>
-                                                    )}
+                                                <div className="attendance-rate-badge">
+                                                    <span className="rate-value">{stats.percentage}%</span>
+                                                    <span className="rate-label">Attendance</span>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
+                                            
+                                            <div className="course-attendance-stats">
+                                                <div className="mini-stat present">
+                                                    <span className="mini-value">{stats.present}</span>
+                                                    <span className="mini-label">Present</span>
+                                                </div>
+                                                <div className="mini-stat absent">
+                                                    <span className="mini-value">{stats.absent}</span>
+                                                    <span className="mini-label">Absent</span>
+                                                </div>
+                                                <div className="mini-stat late">
+                                                    <span className="mini-value">{stats.late}</span>
+                                                    <span className="mini-label">Late</span>
+                                                </div>
+                                                <div className="mini-stat total">
+                                                    <span className="mini-value">{stats.total}</span>
+                                                    <span className="mini-label">Total</span>
+                                                </div>
+                                            </div>
+                                            
+                                            {stats.records.length > 0 && (
+                                                <div className="course-attendance-history">
+                                                    <h5>Recent Records</h5>
+                                                    <div className="mini-records">
+                                                        {stats.records.slice(0, 5).map((rec, idx) => (
+                                                            <div key={idx} className={`mini-record ${rec.status.toLowerCase()}`}>
+                                                                <span className="record-date-mini">{rec.date}</span>
+                                                                <span className={`status-dot ${rec.status.toLowerCase()}`}></span>
+                                                                {rec.remarks && <span className="record-note" title={rec.remarks}>📝</span>}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
 
