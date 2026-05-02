@@ -17,7 +17,8 @@ export default function AnalyticsPage() {
         completionRate: 0,
         departmentStats: [],
         topCourses: [],
-        recentActivity: []
+        recentActivity: [],
+        attendanceStats: null
     });
 
     useEffect(() => {
@@ -108,13 +109,42 @@ export default function AnalyticsPage() {
                 }));
 
             // Recent activity (teacher's submissions)
-            const recentSubmissions = submissions.slice(-5).map(s => ({
-                type: 'submission',
-                student: students.find(u => u.id === s.student)?.full_name || 'Unknown',
-                item: assignments.find(a => a.id === s.assignment)?.title || 'Assignment',
-                date: s.submitted_at,
+            const recentSubmissions = submissions.map(s => ({
+                student: s.student_name || s.student,
+                item: s.assignment_title || 'Assignment',
+                date: s.submitted_at || s.date,
                 score: s.score
             }));
+
+            // Fetch attendance stats for students
+            let attendanceStats = null;
+            if (currentUser.role === 'STUDENT') {
+                try {
+                    const attendanceRes = await apiClient.get(`/api/lms/attendance/?student=${currentUser.id}`);
+                    const attendanceRecords = Array.isArray(attendanceRes.data) ? attendanceRes.data : (attendanceRes.data.results || []);
+                    
+                    let present = 0, absent = 0, late = 0, total = 0;
+                    attendanceRecords.forEach(record => {
+                        const entry = record.entries?.find(e => e.student === currentUser.id);
+                        if (entry) {
+                            total++;
+                            if (entry.status === 'PRESENT') present++;
+                            else if (entry.status === 'ABSENT') absent++;
+                            else if (entry.status === 'LATE') late++;
+                        }
+                    });
+                    
+                    attendanceStats = {
+                        total,
+                        present,
+                        absent,
+                        late,
+                        percentage: total > 0 ? Math.round((present / total) * 100) : 0
+                    };
+                } catch (attErr) {
+                    console.log("Attendance fetch failed:", attErr);
+                }
+            }
 
             setAnalytics({
                 totalCourses: courses.length,
@@ -127,7 +157,8 @@ export default function AnalyticsPage() {
                 completionRate: completionRate,
                 departmentStats: Object.entries(deptStats).map(([id, stats]) => ({ id, ...stats })),
                 topCourses,
-                recentActivity: recentSubmissions.reverse()
+                recentActivity: recentSubmissions.reverse(),
+                attendanceStats
             });
         } catch (err) {
             console.error("Error fetching analytics:", err);
@@ -264,6 +295,37 @@ export default function AnalyticsPage() {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Student Attendance Stats */}
+                {user.role === 'STUDENT' && analytics.attendanceStats && (
+                    <div className="dashboard-card" style={{ marginTop: '30px' }}>
+                        <div className="card-title">
+                            <span className="material-icons-round" style={{ color: '#4caf50', marginRight: '8px' }}>event_available</span>
+                            My Attendance
+                        </div>
+                        <div className="attendance-stats-grid">
+                            <div className="attendance-stat-item present">
+                                <div className="attendance-stat-value">{analytics.attendanceStats.present}</div>
+                                <div className="attendance-stat-label">Present</div>
+                            </div>
+                            <div className="attendance-stat-item absent">
+                                <div className="attendance-stat-value">{analytics.attendanceStats.absent}</div>
+                                <div className="attendance-stat-label">Absent</div>
+                            </div>
+                            <div className="attendance-stat-item late">
+                                <div className="attendance-stat-value">{analytics.attendanceStats.late}</div>
+                                <div className="attendance-stat-label">Late</div>
+                            </div>
+                            <div className="attendance-stat-item total">
+                                <div className="attendance-stat-value">{analytics.attendanceStats.percentage}%</div>
+                                <div className="attendance-stat-label">Attendance Rate</div>
+                            </div>
+                        </div>
+                        <div style={{ marginTop: '15px', fontSize: '0.9rem', color: '#64748b' }}>
+                            Total recorded sessions: <strong>{analytics.attendanceStats.total}</strong>
                         </div>
                     </div>
                 )}
