@@ -447,7 +447,8 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         record = self.get_object()
         entries_data = request.data.get('entries', [])
         for entry in entries_data:
-            student_id = entry.get('student_id')
+            # Accept both 'student' and 'student_id' for compatibility
+            student_id = entry.get('student') or entry.get('student_id')
             status_val = entry.get('status')
             remarks = entry.get('remarks', '')
             AttendanceEntry.objects.update_or_create(
