@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from accounts.models import CustomUser
 from .models import (
     Course, Lecture, Assignment, Quiz, Question, 
     AttendanceRecord, AttendanceEntry, Announcement, Department,
@@ -16,6 +17,12 @@ class DepartmentSerializer(serializers.ModelSerializer):
 class CourseSerializer(serializers.ModelSerializer):
     students = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     teachers = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    assigned_teachers = serializers.PrimaryKeyRelatedField(
+        many=True, 
+        write_only=True,
+        queryset=CustomUser.objects.filter(role='TEACHER'),
+        required=False
+    )
     enrolled_students = serializers.SerializerMethodField()
     
     class Meta:
@@ -31,6 +38,19 @@ class CourseSerializer(serializers.ModelSerializer):
     def get_enrolled_students(self, obj):
         # Return list of student IDs for convenience
         return list(obj.students.values_list('id', flat=True))
+    
+    def create(self, validated_data):
+        # Extract assigned_teachers from validated_data before creating course
+        assigned_teachers = validated_data.pop('assigned_teachers', [])
+        
+        # Create the course without assigned_teachers
+        course = Course.objects.create(**validated_data)
+        
+        # Set the teachers if any were provided
+        if assigned_teachers:
+            course.teachers.set(assigned_teachers)
+        
+        return course
 
 class LectureSerializer(serializers.ModelSerializer):
     class Meta:
