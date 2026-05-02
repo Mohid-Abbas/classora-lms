@@ -17,19 +17,62 @@ export default function TeacherAttendancePage() {
 
     const [submitting, setSubmitting] = useState(false);
     const [message, setMessage] = useState({ type: "", text: "" });
+    
+    // Student view states
+    const [studentAttendance, setStudentAttendance] = useState([]);
+    const [studentCourses, setStudentCourses] = useState([]);
+    const [attendanceStats, setAttendanceStats] = useState({ present: 0, absent: 0, late: 0, total: 0, percentage: 0 });
+    const isStudent = user.role === 'STUDENT';
 
     useEffect(() => {
-        apiClient.get("/api/lms/courses/")
-            .then(res => {
-                const data = Array.isArray(res.data) ? res.data : (res.data.results || []);
-                // Filter courses where teacher is assigned
-                const myCourses = data.filter(c => 
-                    c.teachers?.includes(user.id) || c.teacher?.id === user.id
-                );
-                setCourses(myCourses);
-            })
-            .catch(err => console.error("Error fetching courses", err));
-    }, [user.id]);
+        if (isStudent) {
+            // Fetch student's enrolled courses
+            apiClient.get("/api/lms/courses/")
+                .then(res => {
+                    const data = Array.isArray(res.data) ? res.data : (res.data.results || []);
+                    const enrolledCourses = data.filter(c => 
+                        c.students?.includes(user.id) || c.enrolled_students?.includes(user.id)
+                    );
+                    setStudentCourses(enrolledCourses);
+                })
+                .catch(err => console.error("Error fetching courses", err));
+            
+            // Fetch student's attendance records
+            apiClient.get(`/api/lms/attendance/?student=${user.id}`)
+                .then(res => {
+                    const records = Array.isArray(res.data) ? res.data : (res.data.results || []);
+                    setStudentAttendance(records);
+                    
+                    // Calculate stats
+                    let present = 0, absent = 0, late = 0, total = 0;
+                    records.forEach(record => {
+                        const entry = record.entries?.find(e => e.student === user.id);
+                        if (entry) {
+                            total++;
+                            if (entry.status === 'PRESENT') present++;
+                            else if (entry.status === 'ABSENT') absent++;
+                            else if (entry.status === 'LATE') late++;
+                        }
+                    });
+                    setAttendanceStats({
+                        present, absent, late, total,
+                        percentage: total > 0 ? Math.round((present / total) * 100) : 0
+                    });
+                })
+                .catch(err => console.error("Error fetching attendance", err));
+        } else {
+            // Teacher view - fetch teacher's courses
+            apiClient.get("/api/lms/courses/")
+                .then(res => {
+                    const data = Array.isArray(res.data) ? res.data : (res.data.results || []);
+                    const myCourses = data.filter(c => 
+                        c.teachers?.includes(user.id) || c.teacher?.id === user.id
+                    );
+                    setCourses(myCourses);
+                })
+                .catch(err => console.error("Error fetching courses", err));
+        }
+    }, [user.id, user.role, isStudent]);
 
     useEffect(() => {
         if (selectedCourseId) {
@@ -190,10 +233,12 @@ export default function TeacherAttendancePage() {
             
             // 1. Create record if doesn't exist
             if (!existingRecord) {
-                console.log("Creating attendance record for course:", selectedCourseId, "date:", date);
+                // Ensure date is in YYYY-MM-DD format
+                const formattedDate = new Date(date).toISOString().split('T')[0];
+                console.log("Creating attendance record for course:", selectedCourseId, "date:", formattedDate);
                 const recordRes = await apiClient.post("/api/lms/attendance/", {
                     course: selectedCourseId,
-                    date: date
+                    date: formattedDate
                 });
                 recordId = recordRes.data.id;
                 setExistingRecord(recordRes.data);
@@ -214,8 +259,13 @@ export default function TeacherAttendancePage() {
             // Refresh to get updated record
             fetchCourseData();
         } catch (err) {
-            console.error("Submit error:", err.response?.data || err.message);
-            const errorDetail = err.response?.data?.detail || err.response?.data?.course?.[0] || "Failed to record attendance.";
+            console.error("Submit error:", err);
+            console.error("Error response:", err.response?.data);
+            const errorDetail = err.response?.data?.detail || 
+                              err.response?.data?.date?.[0] ||
+                              err.response?.data?.course?.[0] || 
+                              err.message || 
+                              "Failed to record attendance.";
             setMessage({ type: "error", text: errorDetail });
         } finally {
             setSubmitting(false);
@@ -258,7 +308,77 @@ export default function TeacherAttendancePage() {
                     </div>
                 )}
 
-                <div className="attendance-filters">
+                {/* STUDENT VIEW */}
+                {isStudent && (
+                    <div className="student-attendance-view">
+                        {/* Stats Cards */}
+                        <div className="attendance-stats">
+                            <div className="stat-card">
+                                <span className="stat-value">{attendanceStats.total}</span>
+                                <span className="stat-label">Total Sessions</span>
+                            </div>
+                            <div className="stat-card present">
+                                <span className="stat-value">{attendanceStats.present}</span>
+                                <span className="stat-label">Present</span>
+                            </div>
+                            <div className="stat-card absent">
+                                <span className="stat-value">{attendanceStats.absent}</span>
+                                <span className="stat-label">Absent</span>
+                            </div>
+                            <div className="stat-card late">
+                                <span className="stat-value">{attendanceStats.late}</span>
+                                <span className="stat-label">Late</span>
+                            </div>
+                        </div>
+
+                        {/* Attendance Percentage */}
+                        <div className="attendance-percentage-card">
+                            <div className="percentage-circle">
+                                <span className="percentage-value">{attendanceStats.percentage}%</span>
+                            </div>
+                            <span className="percentage-label">Attendance Rate</span>
+                        </div>
+
+                        {/* Attendance History */}
+                        <div className="attendance-history">
+                            <h3>My Attendance History</h3>
+                            {studentAttendance.length === 0 ? (
+                                <div className="attendance-empty">
+                                    <span className="material-icons-round">event_note</span>
+                                    <p>No attendance records found yet.</p>
+                                </div>
+                            ) : (
+                                <div className="attendance-list">
+                                    {studentAttendance.map((record, idx) => {
+                                        const entry = record.entries?.find(e => e.student === user.id);
+                                        if (!entry) return null;
+                                        return (
+                                            <div key={idx} className={`attendance-record-item ${entry.status.toLowerCase()}`}>
+                                                <div className="record-date">
+                                                    <span className="material-icons-round">calendar_today</span>
+                                                    {record.date}
+                                                </div>
+                                                <div className="record-status">
+                                                    <span className={`status-badge ${entry.status.toLowerCase()}`}>
+                                                        {entry.status}
+                                                    </span>
+                                                    {entry.remarks && (
+                                                        <span className="record-remarks">{entry.remarks}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* TEACHER VIEW */}
+                {!isStudent && (
+                    <>
+                        <div className="attendance-filters">
                     <div className="filter-group">
                         <label>Course</label>
                         <select value={selectedCourseId} onChange={(e) => setSelectedCourseId(e.target.value)}>
@@ -396,8 +516,11 @@ export default function TeacherAttendancePage() {
                         <p>Choose one of your courses from the dropdown above</p>
                     </div>
                 )}
+                </>
+                )}
 
-                {selectedCourseId && students.length > 0 && (
+                {/* Attendance Footer - Only for Teachers */}
+                {!isStudent && selectedCourseId && students.length > 0 && (
                     <div className="attendance-footer">
                         <button 
                             className="submit-btn" 
