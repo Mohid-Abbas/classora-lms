@@ -113,10 +113,11 @@ def institute_detail(request, pk: int):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, IsAdminRole])
+@permission_classes([IsAuthenticated])
 def users_list(request):
     """
-    List all users that belong to the admin's institute.
+    List all users that belong to the user's institute.
+    Admin and teachers can view all users in their institute.
     """
     institute_id = request.query_params.get("institute")
     if not institute_id:
