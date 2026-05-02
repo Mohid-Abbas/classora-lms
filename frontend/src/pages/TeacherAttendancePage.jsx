@@ -117,7 +117,7 @@ export default function TeacherAttendancePage() {
             // Check for existing attendance
             const init = {};
             try {
-                const attendanceRes = await apiClient.get(`/api/lms/attendance/?course=${selectedCourse}&date=${date}`);
+                const attendanceRes = await apiClient.get(`/api/lms/attendance/?course=${selectedCourseId}&date=${date}`);
                 const records = Array.isArray(attendanceRes.data) ? attendanceRes.data : (attendanceRes.data.results || []);
                 
                 if (records.length > 0) {
@@ -190,27 +190,33 @@ export default function TeacherAttendancePage() {
             
             // 1. Create record if doesn't exist
             if (!existingRecord) {
+                console.log("Creating attendance record for course:", selectedCourseId, "date:", date);
                 const recordRes = await apiClient.post("/api/lms/attendance/", {
-                    course: selectedCourse,
+                    course: selectedCourseId,
                     date: date
                 });
                 recordId = recordRes.data.id;
+                setExistingRecord(recordRes.data);
             }
             
-            // 2. Mark entries
-            const entries = Object.keys(attendance).map(sid => ({
-                student_id: sid,
+            // 2. Mark attendance for all students
+            const studentIds = Object.keys(attendance);
+            const entries = studentIds.map(sid => ({
+                student: parseInt(sid),
                 status: attendance[sid].status,
                 remarks: attendance[sid].remarks
             }));
             
+            console.log("Submitting attendance entries:", entries);
             await apiClient.post(`/api/lms/attendance/${recordId}/mark_attendance/`, { entries });
             setMessage({ type: "success", text: existingRecord ? "Attendance updated!" : "Attendance recorded successfully!" });
             
             // Refresh to get updated record
             fetchCourseData();
         } catch (err) {
-            setMessage({ type: "error", text: "Failed to record attendance." });
+            console.error("Submit error:", err.response?.data || err.message);
+            const errorDetail = err.response?.data?.detail || err.response?.data?.course?.[0] || "Failed to record attendance.";
+            setMessage({ type: "error", text: errorDetail });
         } finally {
             setSubmitting(false);
         }
