@@ -1,0 +1,382 @@
+{
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\check_teacher_visibility.py": {
+    "mtime": 1777729031.2908218,
+    "hash": "b0d2d073356c71af987f3103c1e50da6"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\debug_course_creation.py": {
+    "mtime": 1777729031.3106985,
+    "hash": "20baa17e78452b22cf22bbc0a2c6edc4"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\debug_get_400.py": {
+    "mtime": 1777729031.3264477,
+    "hash": "924a2a72d93ffaa9d41745cc931ceedf"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\fix_assignment.py": {
+    "mtime": 1777729031.341479,
+    "hash": "d9749d199d2c6e405beb5f2ae9cf5cfe"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\manage.py": {
+    "mtime": 1777729031.389549,
+    "hash": "07849d2d12b7a36c7336b45ae59593a3"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\test_db_conn.py": {
+    "mtime": 1777729031.4415174,
+    "hash": "acfd06cea9b2d426eaf99a11f50f76c5"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\accounts\\admin.py": {
+    "mtime": 1777729046.8077254,
+    "hash": "7684c5eaeab87844ec9265dfafb84f43"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\accounts\\apps.py": {
+    "mtime": 1777729046.8231966,
+    "hash": "82e59ad70f0d1bbc470d886150f08c2a"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\accounts\\models.py": {
+    "mtime": 1777729046.8371975,
+    "hash": "08ceabed79a4087a9ab2504b6dbb2a20"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\accounts\\permissions.py": {
+    "mtime": 1777729046.853196,
+    "hash": "6f12805a7841ac86b8695a2f107f60a8"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\accounts\\serializers.py": {
+    "mtime": 1777729046.8681943,
+    "hash": "6eb1314d0e84fecf0a6c18c88b2c7e55"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\accounts\\tests.py": {
+    "mtime": 1777729046.8847332,
+    "hash": "465b7e9f69bfd158c850cdfbc7306818"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\accounts\\urls.py": {
+    "mtime": 1777729046.9012473,
+    "hash": "fa9769c15d42cddbd78210675b28dc32"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\accounts\\views.py": {
+    "mtime": 1777729046.918386,
+    "hash": "bd75c95d3bc24ee5c734c16859f84d76"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\accounts\\__init__.py": {
+    "mtime": 1777729046.937164,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\accounts\\migrations\\0001_initial.py": {
+    "mtime": 1777729046.9631553,
+    "hash": "2442cd02419f2b4b0de0582dcb8fe107"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\accounts\\migrations\\0002_institute_academic_year_institute_address_and_more.py": {
+    "mtime": 1777729046.978858,
+    "hash": "634c9c3c9b889fc3a019a3285b9543f2"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\accounts\\migrations\\__init__.py": {
+    "mtime": 1777729046.9943697,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\classora\\asgi.py": {
+    "mtime": 1777729047.179452,
+    "hash": "4af806f7f37e736bd25a400c817fd7f8"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\classora\\settings.py": {
+    "mtime": 1777730323.9346833,
+    "hash": "ce55dbec9028ce28d50d8ec5bd22e216"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\classora\\urls.py": {
+    "mtime": 1777729047.2248807,
+    "hash": "7045176355b601d96090d6fd9674b8f7"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\classora\\wsgi.py": {
+    "mtime": 1777729047.2403033,
+    "hash": "79b8811f23e5741a102fa4c6f53e05fd"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\classora\\__init__.py": {
+    "mtime": 1777729047.2538385,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\eslint.config.js": {
+    "mtime": 1777729047.3791885,
+    "hash": "49c8473bcfcec3aef596a5fb04a6df06"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\vite.config.js": {
+    "mtime": 1777729047.4506557,
+    "hash": "88439104b3c207f17d33ef3160e3b080"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\App.jsx": {
+    "mtime": 1777729121.0366316,
+    "hash": "bcef2c3c6e77b4a649120fab105407e9"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\main.jsx": {
+    "mtime": 1777729121.0647643,
+    "hash": "e13723e2574429d9a6d849727e3ff695"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\api\\auth.js": {
+    "mtime": 1777729121.0802755,
+    "hash": "1e845db521c2cf2ed3ca8bceca95997f"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\api\\client.js": {
+    "mtime": 1777729121.089589,
+    "hash": "73b2006c38f236a02cc38a4194980897"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\components\\DashboardLayout.jsx": {
+    "mtime": 1777729121.1501803,
+    "hash": "89912c507ef47d780f46c5a7b6f0ea28"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\components\\Logo.jsx": {
+    "mtime": 1777729121.1611898,
+    "hash": "daa41e1be97d174c77dfed6c52991d14"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\AnalyticsPage.jsx": {
+    "mtime": 1777729121.1957157,
+    "hash": "1bd4e59367f6775c3032d1f9a221f132"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\AnnouncementsPage.jsx": {
+    "mtime": 1777729121.2230535,
+    "hash": "063c5dae77f497266beb70864b54c60c"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\CoursesPage.jsx": {
+    "mtime": 1777729121.2483222,
+    "hash": "62bfc3f3a240969c5072f74a785def0f"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\InstituteRegisterPage.jsx": {
+    "mtime": 1777729121.2762506,
+    "hash": "607edb4758078c638529bc1c106e25aa"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\LandingPage.jsx": {
+    "mtime": 1777729121.3028047,
+    "hash": "9119d0e9c8d3bfedf85c0f65ad3a2437"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\LoginPage.jsx": {
+    "mtime": 1777729121.3287253,
+    "hash": "859af2cc6fa6374e4e587336578ce662"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\StudentAssignmentsPage.jsx": {
+    "mtime": 1777729121.3589067,
+    "hash": "99dd51ddd75b119915532f9440b202d6"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\StudentDashboard.jsx": {
+    "mtime": 1777729121.368907,
+    "hash": "2035865f739183d486d7fc7ef59e7b44"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\StudentQuizzesPage.jsx": {
+    "mtime": 1777729121.3794262,
+    "hash": "f5cd8059aa829b883aabbae72f501714"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\TeacherAssignmentsPage.jsx": {
+    "mtime": 1777729121.3910463,
+    "hash": "d577214eb05d4e8c327c2daf8a3ef180"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\TeacherAttendancePage.jsx": {
+    "mtime": 1777729121.4215186,
+    "hash": "7840fbd170db0279d15a3a5843fa6bd9"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\TeacherDashboard.jsx": {
+    "mtime": 1777729121.4325187,
+    "hash": "5fd4988052ff5dce5057237460a43e16"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\TeacherLecturePage.jsx": {
+    "mtime": 1777729121.4438019,
+    "hash": "396e890adc6d3f1f49d3a280de58540d"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\TeacherQuizzesPage.jsx": {
+    "mtime": 1777729121.4699686,
+    "hash": "f7a44869af0568e6a53024ebd9893921"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\admin\\AdminDashboard.jsx": {
+    "mtime": 1777729121.5098226,
+    "hash": "0ecc737eb8773f257dbdb75bc8bdde76"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\admin\\AdminDepartmentsPage.jsx": {
+    "mtime": 1777729121.5387814,
+    "hash": "bb8ca266f275f0a61a21b0d003b475c5"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\admin\\CreateCoursePage.jsx": {
+    "mtime": 1777729121.5646503,
+    "hash": "3344ffc9f92763bd61b34ecf52579d1e"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\admin\\CreateUserForm.jsx": {
+    "mtime": 1777729121.5755596,
+    "hash": "37f118d45e1db289b964b511880ee2ff"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\admin\\DepartmentsPage.jsx": {
+    "mtime": 1777729121.6054864,
+    "hash": "4874704ede42bb2e2db69f9768239790"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\admin\\EnrollStudentPage.jsx": {
+    "mtime": 1777729121.6324232,
+    "hash": "0739dba5a5219a39eed74676e6023343"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\admin\\InstituteInfo.jsx": {
+    "mtime": 1777729121.6428752,
+    "hash": "303ecd6761cb831940b2da7da5bd0321"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\pages\\admin\\UserList.jsx": {
+    "mtime": 1777729121.6532733,
+    "hash": "f5cc8d6110a7b358f6ca010ae9ba49f2"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\admin.py": {
+    "mtime": 1777729121.685883,
+    "hash": "ef4c241c5311eee11a93e9366f492a72"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\apps.py": {
+    "mtime": 1777729121.6997476,
+    "hash": "e98f1eed806c9d1e9df6c8618010a007"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\models.py": {
+    "mtime": 1777729121.716812,
+    "hash": "cc1b405bf704b3a44374d7d766e36b7f"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\serializers.py": {
+    "mtime": 1777729121.7310607,
+    "hash": "1ad4bf0d7eb3154f51c00e28f27d2816"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\tests.py": {
+    "mtime": 1777729121.7463782,
+    "hash": "6a9d5db21a3790efe2823519cbcb6fb9"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\test_new_features.py": {
+    "mtime": 1777729121.7658558,
+    "hash": "f675abbcc4ab250fa9c8475b34d125b8"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\urls.py": {
+    "mtime": 1777729121.781147,
+    "hash": "628375e61e2b4d149adb44cbc334231e"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\views.py": {
+    "mtime": 1777729121.7955694,
+    "hash": "6e9c212e64f6c97807670b6102690f04"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\__init__.py": {
+    "mtime": 1777729121.8101733,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\migrations\\0001_initial.py": {
+    "mtime": 1777729121.8344283,
+    "hash": "9a8ca7c200781811a70eb91e30b522df"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\migrations\\0002_department_alter_course_department.py": {
+    "mtime": 1777729121.8496847,
+    "hash": "5cf0b612a1d465155828b10eb2f3ea39"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\migrations\\0003_notification_assignmentsubmission.py": {
+    "mtime": 1777729121.864851,
+    "hash": "eb3121145856472c644ef6b34e5e2705"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\migrations\\0004_assignment_links_assignmentsubmission_links.py": {
+    "mtime": 1777729121.8814242,
+    "hash": "eb251cb3dd261978c2843e33e2fa1afc"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\migrations\\0005_quiz_end_time_quiz_start_time_quizattempt.py": {
+    "mtime": 1777729121.8964195,
+    "hash": "9197c75e33b381d18e76bd2808167ead"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\migrations\\0006_announcement_department_announcement_target_role_and_more.py": {
+    "mtime": 1777729121.91178,
+    "hash": "a7ee57f43f71b249244113e7b1745a27"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\migrations\\0007_announcement_image.py": {
+    "mtime": 1777729121.926554,
+    "hash": "8cf786e09ff83887e3085588878230a9"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\migrations\\0008_course_academic_year_course_section_and_more.py": {
+    "mtime": 1777729121.9403195,
+    "hash": "d55ab63277953787fc2dee00bcbc27ef"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lms\\migrations\\__init__.py": {
+    "mtime": 1777729121.953076,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\lookup.md": {
+    "mtime": 1777729031.370341,
+    "hash": "c5be7a1810c5b71be4994cd975e5e45c"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\README.md": {
+    "mtime": 1777729031.4071786,
+    "hash": "af25935598ab186ac684333626edd0d6"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\requirements.txt": {
+    "mtime": 1777729031.426193,
+    "hash": "c22fe81ed95ea0624d613b2c716a09b8"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\index.html": {
+    "mtime": 1777729047.392035,
+    "hash": "837873fba30019e92c454a812fc5b393"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\README.md": {
+    "mtime": 1777729047.441088,
+    "hash": "3f01850e9fce601d04d6dba39204c1d8"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\assignments\\A03_-_DB.pdf": {
+    "mtime": 1777729122.266454,
+    "hash": "56b7896592af1950370593a849567e49"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\assignments\\A03_-_DB_WDuvWko.pdf": {
+    "mtime": 1777729122.2833028,
+    "hash": "56b7896592af1950370593a849567e49"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\assignments\\lab1_instructions.pdf": {
+    "mtime": 1777729122.3073215,
+    "hash": "9473fdd0d880a43c21b7778d34872157"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\assignments\\report.pdf": {
+    "mtime": 1777729122.3644288,
+    "hash": "0e7ca6e3d49d247eb61da48a6279112c"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\assignments\\report_tuiUjZq.pdf": {
+    "mtime": 1777729122.427535,
+    "hash": "0e7ca6e3d49d247eb61da48a6279112c"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\assignments\\report_vBmzBKq.pdf": {
+    "mtime": 1777729122.483086,
+    "hash": "0e7ca6e3d49d247eb61da48a6279112c"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\assignment_submissions\\A03_-_DB.pdf": {
+    "mtime": 1777729122.5085225,
+    "hash": "56b7896592af1950370593a849567e49"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\assignment_submissions\\A03_-_DB_8cTvXQ0.pdf": {
+    "mtime": 1777729122.5252721,
+    "hash": "56b7896592af1950370593a849567e49"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\assignment_submissions\\A03_-_DB_QU2PcUH.pdf": {
+    "mtime": 1777729122.5496278,
+    "hash": "56b7896592af1950370593a849567e49"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\assignment_submissions\\ReAct_Synergizing_Reasoning_and_Acting_in_Language_Models.pdf": {
+    "mtime": 1777729122.5722883,
+    "hash": "7fb2c7e66b7b7785d3971b44469f04f9"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\assignment_submissions\\report.pdf": {
+    "mtime": 1777729122.6346953,
+    "hash": "0e7ca6e3d49d247eb61da48a6279112c"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\assignment_submissions\\report_kifkFp2.pdf": {
+    "mtime": 1777729122.6962776,
+    "hash": "0e7ca6e3d49d247eb61da48a6279112c"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\assignment_submissions\\report_wisyZSn.pdf": {
+    "mtime": 1777729122.758792,
+    "hash": "0e7ca6e3d49d247eb61da48a6279112c"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\public\\ai-learning-robot.png": {
+    "mtime": 1777729120.9613454,
+    "hash": "788919ebe6460e2dbf8bf4696237d22c"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\public\\ai-learning-robot.webp": {
+    "mtime": 1777729120.9748788,
+    "hash": "dac39720500833365cc2ec6135985ff4"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\public\\thumbs-up.png": {
+    "mtime": 1777729120.9918745,
+    "hash": "eb22e10b40142cad2765b8b1b5aeb7f8"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\public\\vite.svg": {
+    "mtime": 1777729121.002885,
+    "hash": "8e3a10e157f75ada21ab742c022d5430"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\frontend\\src\\assets\\react.svg": {
+    "mtime": 1777729121.1111042,
+    "hash": "f0402b67b6ce880f65666bb49e841696"
+  },
+  "C:\\Users\\surface\\Desktop\\classora-lms\\classora-lms\\media\\announcements\\algorithm_comparison.png": {
+    "mtime": 1777731551.4044356,
+    "hash": "10c8cf846b13c41e90dea0fb3ac2c381"
+  }
+}
