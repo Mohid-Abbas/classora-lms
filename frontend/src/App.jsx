@@ -18,6 +18,7 @@ import StudentAnalyticsPage from "./pages/StudentAnalyticsPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import AdminDepartmentsPage from "./pages/admin/AdminDepartmentsPage";
 import EnrollStudentPage from "./pages/admin/EnrollStudentPage";
+import AIAssistantPage from "./pages/AIAssistantPage";
 
 function RequireRole({ role, children }) {
   const stored = window.localStorage.getItem("current_user");
@@ -119,6 +120,7 @@ function App() {
         <Route path="/attendance" element={<TeacherAttendancePage />} />
         <Route path="/lectures" element={<TeacherLecturePage />} />
         <Route path="/analytics" element={<AnalyticsRoute />} />
+        <Route path="/ai-assistant" element={<AIAssistantPage />} />
         <Route path="/announcements" element={<AnnouncementsPage />} />
 
         <Route path="*" element={<LandingPage />} />
