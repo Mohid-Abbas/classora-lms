@@ -1,11 +1,11 @@
 """
 AI Integration Module for Classora LMS
-Using Google Gemini API for AI-powered features
+Supports multiple AI providers: Google Gemini (primary), OpenRouter (fallback)
 """
 
 import os
 import json
-import google.generativeai as genai
+import requests
 from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -18,29 +18,127 @@ from .models import Quiz, Question, Course
 
 logger = logging.getLogger(__name__)
 
-# Configure Gemini API
-if hasattr(settings, 'GEMINI_API_KEY'):
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+# Try to configure Gemini API (primary)
+gemini_available = False
+gemini_key = getattr(settings, 'GEMINI_API_KEY', '')
+if gemini_key and gemini_key.strip():
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=gemini_key)
+        gemini_available = True
+        logger.info("✅ Gemini API configured successfully")
+    except Exception as e:
+        logger.warning(f"⚠️ Gemini configuration failed: {e}")
 else:
-    # Fallback to environment variable
-    api_key = os.getenv('GEMINI_API_KEY')
-    if api_key:
-        genai.configure(api_key=api_key)
+    logger.info("ℹ️ GEMINI_API_KEY not set in environment")
+
+# OpenRouter configuration (fallback/secondary)
+openrouter_key = getattr(settings, 'OPENROUTER_API_KEY', '')
+openrouter_available = bool(openrouter_key and openrouter_key.strip())
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+if openrouter_available:
+    logger.info("✅ OpenRouter API configured successfully")
+else:
+    logger.info("ℹ️ OPENROUTER_API_KEY not set in environment")
 
 class AIAssistant:
-    """AI Assistant for various LMS tasks"""
+    """AI Assistant supporting multiple AI providers"""
     
     def __init__(self):
-        try:
-            self.model = genai.GenerativeModel('gemini-2.0-flash')
+        self.provider = None
+        self.model = None
+        self.available = False
+        
+        # Log configuration state
+        logger.info(f"🔧 AI Configuration: Gemini={gemini_available}, OpenRouter={openrouter_available}")
+        
+        # Try Gemini first
+        if gemini_available:
+            try:
+                self.model = genai.GenerativeModel('gemini-2.0-flash')
+                self.provider = 'gemini'
+                self.available = True
+                logger.info("✅ AI Assistant initialized with Gemini")
+                return
+            except Exception as e:
+                logger.warning(f"⚠️ Gemini initialization failed: {e}")
+        
+        # Fallback to OpenRouter
+        if openrouter_available:
+            self.provider = 'openrouter'
             self.available = True
+            logger.info("✅ AI Assistant initialized with OpenRouter")
+            return
+        
+        # No provider available
+        logger.error("❌ No AI provider available!")
+        logger.error("   Please set one of these in your .env file:")
+        logger.error("   - GEMINI_API_KEY (from https://aistudio.google.com/)")
+        logger.error("   - OPENROUTER_API_KEY (from https://openrouter.ai/)")
+    
+    def _call_openrouter(self, prompt, model="anthropic/claude-3.5-sonnet"):
+        """Call OpenRouter API"""
+        try:
+            headers = {
+                "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://classora-lms.com",
+                "X-Title": "Classora LMS"
+            }
+            
+            data = {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7
+            }
+            
+            response = requests.post(OPENROUTER_URL, headers=headers, json=data, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result['choices'][0]['message']['content']
+            else:
+                logger.error(f"OpenRouter error: {response.status_code} - {response.text}")
+                return None
+                
         except Exception as e:
-            logger.error(f"Failed to initialize AI model: {e}")
-            self.available = False
+            logger.error(f"OpenRouter call failed: {e}")
+            return None
+    
+    def _call_openrouter_chat(self, messages, model="anthropic/claude-3.5-sonnet"):
+        """Call OpenRouter API with chat history"""
+        try:
+            headers = {
+                "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://classora-lms.com",
+                "X-Title": "Classora LMS"
+            }
+            
+            data = {
+                "model": model,
+                "messages": messages,
+                "temperature": 0.7
+            }
+            
+            response = requests.post(OPENROUTER_URL, headers=headers, json=data, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result['choices'][0]['message']['content']
+            else:
+                logger.error(f"OpenRouter error: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"OpenRouter chat failed: {e}")
+            return None
     
     def generate_quiz_questions(self, topic, num_questions=5, difficulty='medium'):
-        """Generate quiz questions based on topic"""
+        """Generate quiz questions using available AI provider"""
         if not self.available:
+            logger.error("No AI provider available")
             return None
             
         prompt = f"""
@@ -65,8 +163,17 @@ class AIAssistant:
         """
         
         try:
-            response = self.model.generate_content(prompt)
-            response_text = response.text
+            # Use appropriate provider
+            if self.provider == 'gemini':
+                response = self.model.generate_content(prompt)
+                response_text = response.text
+            elif self.provider == 'openrouter':
+                response_text = self._call_openrouter(prompt)
+                if not response_text:
+                    return None
+            else:
+                logger.error(f"Unknown provider: {self.provider}")
+                return None
             
             # Try to extract JSON from markdown code blocks if present
             if "```json" in response_text:
@@ -90,7 +197,7 @@ class AIAssistant:
                 logger.error("API quota limit reached")
                 return {"error": "quota_limit", "message": "API quota limit reached. Please wait a minute and try again."}
             
-            logger.error(f"Response text: {response.text if 'response' in locals() else 'No response'}")
+            logger.error(f"Response text: {response_text if 'response_text' in locals() else 'No response'}")
             return None
     
     def generate_assignment_feedback(self, assignment_text, rubric=None):
@@ -117,8 +224,16 @@ class AIAssistant:
         """
         
         try:
-            response = self.model.generate_content(prompt)
-            response_text = response.text
+            # Use appropriate provider
+            if self.provider == 'gemini':
+                response = self.model.generate_content(prompt)
+                response_text = response.text
+            elif self.provider == 'openrouter':
+                response_text = self._call_openrouter(prompt)
+                if not response_text:
+                    return None
+            else:
+                return None
             
             # Try to extract JSON from markdown code blocks if present
             if "```json" in response_text:
@@ -134,7 +249,7 @@ class AIAssistant:
             return feedback
         except Exception as e:
             logger.error(f"Error generating feedback: {e}")
-            logger.error(f"Response text: {response.text if 'response' in locals() else 'No response'}")
+            logger.error(f"Response text: {response_text if 'response_text' in locals() else 'No response'}")
             return None
     
     def generate_study_recommendations(self, student_performance, subjects):
@@ -161,8 +276,16 @@ class AIAssistant:
         """
         
         try:
-            response = self.model.generate_content(prompt)
-            response_text = response.text
+            # Use appropriate provider
+            if self.provider == 'gemini':
+                response = self.model.generate_content(prompt)
+                response_text = response.text
+            elif self.provider == 'openrouter':
+                response_text = self._call_openrouter(prompt)
+                if not response_text:
+                    return None
+            else:
+                return None
             
             # Try to extract JSON from markdown code blocks if present
             if "```json" in response_text:
@@ -178,7 +301,7 @@ class AIAssistant:
             return recommendations
         except Exception as e:
             logger.error(f"Error generating recommendations: {e}")
-            logger.error(f"Response text: {response.text if 'response' in locals() else 'No response'}")
+            logger.error(f"Response text: {response_text if 'response_text' in locals() else 'No response'}")
             return None
     
     def chat_with_ai(self, message, context=""):
@@ -193,11 +316,20 @@ class AIAssistant:
         Be helpful, educational, and concise.
         """
         
-        full_prompt = f"{system_prompt}\n\nContext: {context}\n\nUser: {message}"
-        
         try:
-            response = self.model.generate_content(full_prompt)
-            return response.text
+            # Use appropriate provider
+            if self.provider == 'gemini':
+                full_prompt = f"{system_prompt}\n\nContext: {context}\n\nUser: {message}"
+                response = self.model.generate_content(full_prompt)
+                return response.text
+            elif self.provider == 'openrouter':
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Context: {context}\n\n{message}"}
+                ]
+                return self._call_openrouter_chat(messages)
+            else:
+                return None
         except Exception as e:
             logger.error(f"Error in AI chat: {e}")
             return None
@@ -209,6 +341,15 @@ ai_assistant = AIAssistant()
 @permission_classes([IsAuthenticated])
 def generate_quiz_questions(request):
     """Generate quiz questions using AI"""
+    # Check if AI is available
+    if not ai_assistant.available:
+        return Response({
+            'error': 'AI service not configured',
+            'message': 'Please set GEMINI_API_KEY or OPENROUTER_API_KEY in .env file',
+            'gemini_url': 'https://aistudio.google.com/',
+            'openrouter_url': 'https://openrouter.ai/'
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    
     try:
         data = request.data
         topic = data.get('topic', '')
@@ -326,6 +467,15 @@ def save_ai_quiz_to_course(request):
 @permission_classes([IsAuthenticated])
 def generate_assignment_feedback(request):
     """Generate assignment feedback using AI"""
+    # Check if AI is available
+    if not ai_assistant.available:
+        return Response({
+            'error': 'AI service not configured',
+            'message': 'Please set GEMINI_API_KEY or OPENROUTER_API_KEY in .env file',
+            'gemini_url': 'https://aistudio.google.com/',
+            'openrouter_url': 'https://openrouter.ai/'
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    
     try:
         data = request.data
         assignment_text = data.get('assignment_text', '')
@@ -358,6 +508,15 @@ def generate_assignment_feedback(request):
 @permission_classes([IsAuthenticated])
 def generate_study_recommendations(request):
     """Generate study recommendations using AI"""
+    # Check if AI is available
+    if not ai_assistant.available:
+        return Response({
+            'error': 'AI service not configured',
+            'message': 'Please set GEMINI_API_KEY or OPENROUTER_API_KEY in .env file',
+            'gemini_url': 'https://aistudio.google.com/',
+            'openrouter_url': 'https://openrouter.ai/'
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    
     try:
         data = request.data
         student_performance = data.get('student_performance', '')
@@ -390,6 +549,15 @@ def generate_study_recommendations(request):
 @permission_classes([IsAuthenticated])
 def ai_chat(request):
     """AI chat endpoint"""
+    # Check if AI is available
+    if not ai_assistant.available:
+        return Response({
+            'error': 'AI service not configured',
+            'message': 'Please set GEMINI_API_KEY or OPENROUTER_API_KEY in .env file',
+            'gemini_url': 'https://aistudio.google.com/',
+            'openrouter_url': 'https://openrouter.ai/'
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    
     try:
         data = request.data
         message = data.get('message', '')
@@ -421,7 +589,28 @@ def ai_chat(request):
 @api_view(['GET'])
 def ai_status(request):
     """Check AI service status - Public endpoint"""
-    return Response({
+    provider_name = ai_assistant.provider if ai_assistant.available else None
+    model_name = 'gemini-2.0-flash' if provider_name == 'gemini' else 'anthropic/claude-3.5-sonnet' if provider_name == 'openrouter' else None
+    
+    # Check actual key status (without exposing keys)
+    gemini_key_set = bool(getattr(settings, 'GEMINI_API_KEY', '').strip())
+    openrouter_key_set = bool(getattr(settings, 'OPENROUTER_API_KEY', '').strip())
+    
+    response_data = {
         'available': ai_assistant.available,
-        'model': 'gemini-2.0-flash' if ai_assistant.available else None
-    })
+        'provider': provider_name,
+        'model': model_name,
+        'gemini_key_set': gemini_key_set,
+        'openrouter_key_set': openrouter_key_set,
+        'gemini_configured': gemini_available,
+        'openrouter_configured': openrouter_available
+    }
+    
+    # Add helpful message if not available
+    if not ai_assistant.available:
+        response_data['error'] = 'No AI provider configured'
+        response_data['help'] = 'Set GEMINI_API_KEY or OPENROUTER_API_KEY in .env file'
+        response_data['gemini_url'] = 'https://aistudio.google.com/'
+        response_data['openrouter_url'] = 'https://openrouter.ai/'
+    
+    return Response(response_data)
