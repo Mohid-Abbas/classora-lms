@@ -71,14 +71,29 @@ export default function AdminDepartmentsPage() {
     };
 
     const deleteDepartment = async (id) => {
-        if (!window.confirm("Delete this department? All associated courses will remain but without a department.")) return;
         try {
+            // Get deletion impact information first
+            const deleteInfo = await apiClient.get(`/api/lms/departments/${id}/delete-info/`);
+            const impact = deleteInfo.data;
+            
+            const confirmMessage = `⚠️ DANGER: This will permanently delete:\n\n` +
+                `• Department: ${impact.department.name}\n` +
+                `• ${impact.impact_summary.courses_count} course(s)\n` +
+                `• ${impact.impact_summary.total_enrollments} enrollment(s)\n` +
+                `• ${impact.impact_summary.total_teachers} teacher assignment(s)\n\n` +
+                `Affected courses:\n${impact.affected_courses.map(c => `  • ${c.name} (${c.code}) - ${c.enrollment_count} students`).join('\n')}\n\n` +
+                `This action CANNOT be undone. Are you absolutely sure?`;
+            
+            if (!window.confirm(confirmMessage)) return;
+            
             await apiClient.delete(`/api/lms/departments/${id}/`);
-            setMessage({ type: "success", text: "Department deleted" });
+            setMessage({ type: "success", text: `Department and ${impact.impact_summary.courses_count} course(s) deleted permanently` });
             setSelectedDept(null);
             fetchData();
         } catch (err) {
-            setMessage({ type: "error", text: "Failed to delete department" });
+            console.error("Department deletion error:", err);
+            const errorMsg = err.response?.data?.detail || "Failed to delete department";
+            setMessage({ type: "error", text: errorMsg });
         }
     };
 
