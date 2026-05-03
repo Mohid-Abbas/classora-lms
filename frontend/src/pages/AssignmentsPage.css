@@ -358,6 +358,57 @@
 
 .asgn-grade-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
+/* Total marks display */
+.asgn-grade-info {
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    background: #f0f9ff;
+    border-left: 4px solid #2196F3;
+    border-radius: 8px;
+}
+
+.asgn-total-marks {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1e40af;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.asgn-total-marks strong {
+    font-size: 1rem;
+    color: #1d4ed8;
+}
+
+/* Enhanced submission organization */
+.asgn-submission-files {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.asgn-submission-links {
+    margin-bottom: 16px;
+}
+
+.asgn-links-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.asgn-grade-section {
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+    margin-top: 16px;
+}
+
 .asgn-empty { color: #94a3b8; font-size: 0.9rem; text-align: center; padding: 20px 0; }
 
 .asgn-empty-state {
@@ -408,8 +459,21 @@
 .asgn-student-card.open      { border-left-color: #2196F3; }
 
 .asgn-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
-.asgn-card-title { font-size: 1.05rem; font-weight: 800; color: #1e293b; }
+.asgn-card-title { font-size: 1.05rem; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 8px; }
 .asgn-card-due { font-size: 0.8rem; color: #64748b; margin-top: 4px; }
+
+.asgn-resources-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 6px;
+    background: #3b82f6;
+    color: white;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-left: 8px;
+}
 .asgn-card-desc { font-size: 0.9rem; color: #475569; margin-bottom: 16px; line-height: 1.5; }
 
 .asgn-teacher-attach {
@@ -466,6 +530,47 @@
     text-decoration: none;
     border: none;
     cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.asgn-link-chip:hover {
+    background: #e9d5ff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
+}
+
+/* Enhanced Teacher Links */
+.asgn-teacher-links {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: #f0f9ff;
+    border: 2px solid #dbeafe;
+    border-radius: 14px;
+}
+
+.asgn-teacher-links-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #1e40af;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.asgn-teacher-link {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    border: none;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.asgn-teacher-link:hover {
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 .asgn-link-chip button {
