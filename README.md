@@ -300,4 +300,82 @@ Then:
 - Admin dashboard: `http://localhost:5173/admin`
 
 You’re ready to collaborate on Classora LMS. 🚀
-*** End Patch***} -->
+
+---
+
+## 7. Test Cases and How to Run Them
+
+The LMS test suite includes assignment-style structured test output in terminal for:
+
+- 10 detailed functional test cases (TC01 to TC10)
+- 4 Boundary Value Analysis (BVA) features
+
+When a test passes, terminal prints:
+
+- `Status : OK (Pass)` in green color
+
+### 7.1. Structured Functional Test Cases (TC01-TC10)
+
+- TC01: Course Management (admin course creation)
+- TC02: Quiz Management (teacher quiz creation)
+- TC03: Assignment Management (student submission)
+- TC04: Announcement Management (authorized creation)
+- TC05: Quiz Attempt Management (student attempt)
+- TC06: Department Management (admin allowed, student denied)
+- TC07: Attendance Management (teacher create and mark)
+- TC08: Notification Management (student retrieval)
+- TC09: Access Control (forbidden operations)
+- TC10: Data Access Control (role-based filtered retrieval)
+
+Run only structured TC tests:
+
+```powershell
+python manage.py test lms.tests.StructuredTestCases --verbosity 2
+```
+
+### 7.2. Boundary Value Analysis Tests (4 Features)
+
+- BVA-01: Quiz Total Time Minutes
+  - Minimum: 1
+  - Maximum: 300
+  - Just below minimum: 0
+  - Just above maximum: 301
+- BVA-02: Question Points
+  - Minimum: 1
+  - Maximum: 100
+  - Just below minimum: 0
+  - Just above maximum: 101
+- BVA-03: Course Duration Weeks
+  - Minimum: 1
+  - Maximum: 52
+  - Just below minimum: 0
+  - Just above maximum: 53
+- BVA-04: Announcement Title Length
+  - Minimum: 1
+  - Maximum: 255
+  - Just below minimum: 0
+  - Just above maximum: 256
+
+Run only BVA tests:
+
+```powershell
+python manage.py test lms.tests.BoundaryValueAnalysisTests --verbosity 2
+```
+
+### 7.3. Run Both Together (Recommended)
+
+```powershell
+python manage.py test lms.tests.StructuredTestCases lms.tests.BoundaryValueAnalysisTests --verbosity 2
+```
+
+Expected terminal summary:
+
+- Structured block printed for each TC and BVA case
+- Per-case status line with green `OK`
+- Final Django test summary ending with `OK`
+
+### 7.4. Optional: Run Entire LMS Test File
+
+```powershell
+python manage.py test lms.tests --verbosity 2
+```
