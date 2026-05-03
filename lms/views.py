@@ -1185,6 +1185,34 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
             
         serializer.save(student=self.request.user, status=status_val)
 
+    def perform_update(self, serializer):
+        from rest_framework.exceptions import PermissionDenied
+        user = self.request.user
+        instance = serializer.instance
+        
+        # Only teachers and admins can grade assignments
+        if user.role == "STUDENT":
+            raise PermissionDenied("Students cannot modify assignment submissions.")
+        
+        # Check if this is a grading operation (score or status is being updated)
+        new_score = serializer.validated_data.get('score')
+        new_status = serializer.validated_data.get('status')
+        old_score = instance.score
+        old_status = instance.status
+        
+        # Save the updated submission
+        updated_instance = serializer.save()
+        
+        # Send notification to student if grade was assigned/updated
+        if (new_score is not None and new_score != old_score) or (new_status == "GRADED" and old_status != "GRADED"):
+            Notification.objects.create(
+                user=instance.student,
+                title="Assignment Graded",
+                message=f"Your assignment '{instance.assignment.title}' has been graded. Score: {new_score or 0}/{instance.assignment.total_marks}.",
+            )
+        
+        return updated_instance
+
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
@@ -1313,7 +1341,12 @@ def student_analytics(request):
     quiz_attempts = QuizAttempt.objects.filter(student=student, quiz__course__in=courses)
     
     # Calculate performance metrics
-    assignment_scores = [sub.score for sub in assignments if sub.score is not None]
+    assignment_scores = []
+    for sub in assignments:
+        if sub.score is not None and sub.assignment.total_marks > 0:
+            percentage = (sub.score / sub.assignment.total_marks) * 100
+            assignment_scores.append(percentage)
+    
     quiz_scores = []
     for attempt in quiz_attempts:
         if attempt.score is not None:
@@ -1330,6 +1363,10 @@ def student_analytics(request):
     # Serialize data
     assignment_data = []
     for assignment in assignments:
+        percentage = None
+        if assignment.score is not None and assignment.assignment.total_marks > 0:
+            percentage = round((assignment.score / assignment.assignment.total_marks) * 100, 1)
+        
         assignment_data.append({
             'id': assignment.id,
             'assignment': assignment.assignment.id,
@@ -1338,6 +1375,7 @@ def student_analytics(request):
             'student': assignment.student.id,
             'score': assignment.score,
             'total_marks': assignment.assignment.total_marks,
+            'percentage': percentage,
             'submitted_at': assignment.submitted_at
         })
     
@@ -1345,6 +1383,10 @@ def student_analytics(request):
     for attempt in quiz_attempts:
         # Calculate total marks by summing points of all questions in the quiz
         total_marks = attempt.quiz.questions.aggregate(total=models.Sum('points'))['total'] or 0
+        
+        percentage = None
+        if attempt.score is not None and total_marks > 0:
+            percentage = round((attempt.score / total_marks) * 100, 1)
         
         quiz_data.append({
             'id': attempt.id,
@@ -1354,6 +1396,7 @@ def student_analytics(request):
             'student': attempt.student.id,
             'score': attempt.score,
             'total_marks': total_marks,
+            'percentage': percentage,
             'submitted_at': attempt.submitted_at
         })
     

@@ -358,6 +358,29 @@
 
 .asgn-grade-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
+/* Total marks display */
+.asgn-grade-info {
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    background: #f0f9ff;
+    border-left: 4px solid #2196F3;
+    border-radius: 8px;
+}
+
+.asgn-total-marks {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1e40af;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.asgn-total-marks strong {
+    font-size: 1rem;
+    color: #1d4ed8;
+}
+
 /* Enhanced submission organization */
 .asgn-submission-files {
     margin-bottom: 16px;

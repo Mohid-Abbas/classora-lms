@@ -403,6 +403,9 @@ export default function TeacherAssignmentsPage() {
 
                                             {/* Grade */}
                                             <div className="asgn-grade-section">
+                                                <div className="asgn-grade-info">
+                                                    <span className="asgn-total-marks">Total Marks: <strong>{selectedAsgn?.total_marks ?? "?"}</strong></span>
+                                                </div>
                                                 <div className="asgn-grade-row">
                                                     <input className="asgn-input sm" type="number"
                                                         placeholder={`Score / ${selectedAsgn?.total_marks ?? "?"}`}
