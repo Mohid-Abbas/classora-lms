@@ -421,7 +421,7 @@ export default function CoursesPage() {
                                         }
 
                                         if (item._type === "announcement") {
-                                            const imgUrl = item.image_url || (item.image ? `http://localhost:8000${item.image}` : null);
+                                            const imgUrl = item.image_url;
                                             return (
                                                 <div key={`ann-${item.id}`} className="cs-stream-card" style={{ borderLeft: '4px solid #64748b' }}>
                                                     <div className="cs-stream-card-header">
