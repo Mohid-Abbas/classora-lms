@@ -20,7 +20,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-kbx_b33u9oiri&s8rss8b#@s3o6uggelis8)1667m070q1m84e'
+import os
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-kbx_b33u9oiri&s8rss8b#@s3o6uggelis8)1667m070q1m84e')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -85,8 +86,8 @@ WSGI_APPLICATION = 'classora.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'classora_lms',
-        'USER': 'classora_user',
+        'NAME': 'Classora_LMS',
+        'USER': 'root',
         'PASSWORD': '123456',
         'HOST': 'localhost',
         'PORT': '3306',
