@@ -46,6 +46,7 @@ export default function DashboardLayout({ children, user }) {
         { label: "Quizzes", path: "/quizzes", icon: "quiz", roles: ["TEACHER", "STUDENT"] },
         { label: "Attendance", path: "/attendance", icon: "how_to_reg", roles: ["TEACHER", "STUDENT"] },
         { label: "Analytics", path: "/analytics", icon: "analytics", roles: ["ADMIN", "TEACHER", "STUDENT"] },
+        { label: "AI Assistant", path: "/ai-assistant", icon: "smart_toy", roles: ["ADMIN", "TEACHER", "STUDENT"] },
         { label: "Announcements", path: "/announcements", icon: "campaign", roles: ["ADMIN", "TEACHER", "STUDENT"] },
     ];
 
