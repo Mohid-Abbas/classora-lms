@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     CourseViewSet, DepartmentViewSet, LectureViewSet, AssignmentViewSet, QuizViewSet,
     QuestionViewSet, AttendanceViewSet, AnnouncementViewSet, AssignmentSubmissionViewSet,
-    NotificationViewSet, QuizAttemptViewSet, AnnouncementCommentViewSet
+    NotificationViewSet, QuizAttemptViewSet, AnnouncementCommentViewSet,
+    student_analytics
 )
 
 router = DefaultRouter()
@@ -22,4 +23,5 @@ router.register(r'quiz-attempts', QuizAttemptViewSet, basename='quiz-attempt')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('student-analytics/', student_analytics, name='student-analytics'),
 ]
