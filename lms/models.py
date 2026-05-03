@@ -16,7 +16,7 @@ class Course(models.Model):
     institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name="courses")
     name = models.CharField(max_length=255)
     code = models.CharField(max_length=100)
-    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name='courses')
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, null=True, blank=True, related_name='courses')
     semester = models.CharField(max_length=100, null=True, blank=True)
     academic_year = models.CharField(max_length=20, null=True, blank=True, help_text="e.g., 2025-2026")
     section = models.CharField(max_length=20, default="A", help_text="Course section (A, B, C, etc.)")
