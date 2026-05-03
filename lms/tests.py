@@ -750,6 +750,98 @@ class StructuredTestCases(StructuredTerminalReportMixin, APITestCase):
         courses = response.data.get('results', [])
         self.assertGreaterEqual(len(courses), 1)
 
+    def test_attendance_only_enrolled_students(self):
+        """
+        Test that attendance can only be marked for students enrolled in the course.
+        Department students who are not enrolled should be excluded.
+        """
+        # Create additional students in the same department but not enrolled in the course
+        dept_student1 = CustomUser.objects.create_user(
+            email="dept_student1@test.com",
+            password="password123",
+            full_name="Department Student 1",
+            role="STUDENT",
+            institute=self.institute
+        )
+        dept_student2 = CustomUser.objects.create_user(
+            email="dept_student2@test.com", 
+            password="password123",
+            full_name="Department Student 2",
+            role="STUDENT",
+            institute=self.institute
+        )
+        
+        # Create course and assign department
+        course = Course.objects.create(
+            name="Test Course", code="TEST101",
+            institute=self.institute, department=self.department,
+            semester="Fall", academic_year="2025-2026", credits=3
+        )
+        
+        # Only enroll one student in the course (self.student) and assign teacher
+        course.students.add(self.student)
+        course.teachers.add(self.teacher)
+        # Note: dept_student1 and dept_student2 are NOT enrolled in the course
+        
+        # Create attendance record
+        self.client.force_authenticate(user=self.teacher)
+        attendance_data = {
+            'course': course.id,
+            'date': timezone.now().date()
+        }
+        response = self.client.post('/api/lms/attendance/', attendance_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        record_id = response.data['id']
+        
+        # Test 1: Successfully mark attendance for enrolled student
+        mark_data = {
+            'entries': [{
+                'student_id': self.student.id,
+                'status': 'PRESENT',
+                'remarks': 'On time'
+            }]
+        }
+        response = self.client.post(f'/api/lms/attendance/{record_id}/mark_attendance/', mark_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['entries_processed'], 1)
+        
+        # Test 2: Attempt to mark attendance for non-enrolled department student
+        mark_data_invalid = {
+            'entries': [{
+                'student_id': dept_student1.id,
+                'status': 'PRESENT',
+                'remarks': 'Should fail'
+            }]
+        }
+        response = self.client.post(f'/api/lms/attendance/{record_id}/mark_attendance/', mark_data_invalid, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('not enrolled in this course', response.data['students'])
+        
+        # Test 3: Attempt mixed valid and invalid students
+        mark_data_mixed = {
+            'entries': [
+                {'student_id': self.student.id, 'status': 'PRESENT', 'remarks': 'Valid'},
+                {'student_id': dept_student2.id, 'status': 'ABSENT', 'remarks': 'Invalid'}
+            ]
+        }
+        response = self.client.post(f'/api/lms/attendance/{record_id}/mark_attendance/', mark_data_mixed, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('not enrolled in this course', response.data['students'])
+        
+        # Verify only the enrolled student has attendance entry
+        from .models import AttendanceEntry
+        entries = AttendanceEntry.objects.filter(record_id=record_id)
+        self.assertEqual(entries.count(), 1)
+        self.assertEqual(entries.first().student, self.student)
+        
+        # Test 4: Verify get_enrolled_students endpoint returns only enrolled students
+        response = self.client.get(f'/api/lms/attendance/enrolled-students/?course={course.id}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['enrolled_count'], 1)
+        self.assertEqual(len(response.data['students']), 1)
+        self.assertEqual(response.data['students'][0]['id'], self.student.id)
+        self.assertEqual(response.data['students'][0]['full_name'], self.student.full_name)
+
 
 # =============================================================================
 # E. BOUNDARY VALUE ANALYSIS (4 critical features)

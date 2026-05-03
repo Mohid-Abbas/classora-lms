@@ -110,60 +110,62 @@ export default function TeacherAttendancePage() {
         let errorMsg = "";
         
         try {
-            // Get all students first - try with institute filter
-            let allStudents = [];
-            try {
-                console.log("Fetching students for institute:", user.institute_id);
-                const studentsRes = await apiClient.get(`/api/users/?role=STUDENT&institute=${user.institute_id}`);
-                console.log("Students response:", studentsRes.data);
-                allStudents = Array.isArray(studentsRes.data) ? studentsRes.data : (studentsRes.data.results || []);
-            } catch (permErr) {
-                console.log("Permission error with institute filter, trying without:", permErr.message);
-                // Try without institute filter
-                try {
-                    const studentsRes = await apiClient.get(`/api/users/?role=STUDENT`);
-                    allStudents = Array.isArray(studentsRes.data) ? studentsRes.data : (studentsRes.data.results || []);
-                } catch (permErr2) {
-                    console.log("Still permission denied:", permErr2.message);
-                    // Teacher doesn't have permission to see students at all
-                    allStudents = [];
-                }
-            }
-            console.log("All students count:", allStudents.length);
-            
+            // Use our new endpoint to get only enrolled students for this course
             let enrolledStudents = [];
-            
-            // Try to get enrolled students from the already-loaded course data
-            let enrolledIds = [];
-            if (selectedCourse) {
-                enrolledIds = selectedCourse.enrolled_students || selectedCourse.students || selectedCourse.student_ids || [];
-                console.log("Enrolled IDs from course data:", enrolledIds);
-            }
-            
-            // If no students in course data, try the detail endpoint
-            if (enrolledIds.length === 0) {
-                try {
-                    console.log("Fetching course details for:", selectedCourseId);
-                    const courseRes = await apiClient.get(`/api/lms/courses/${selectedCourseId}/`);
-                    console.log("Course response:", courseRes.data);
-                    const course = courseRes.data;
-                    enrolledIds = course.enrolled_students || course.students || course.student_ids || [];
-                    console.log("Enrolled IDs from API:", enrolledIds);
-                } catch (courseErr) {
-                    console.log("Course detail failed:", courseErr.message);
+            try {
+                console.log("Fetching enrolled students for course:", selectedCourseId);
+                const studentsRes = await apiClient.get(`/api/lms/attendance/enrolled-students/?course=${selectedCourseId}`);
+                console.log("Enrolled students response:", studentsRes.data);
+                console.log("Response status:", studentsRes.status);
+                
+                if (studentsRes.data && studentsRes.data.students) {
+                    enrolledStudents = studentsRes.data.students;
+                    console.log("Enrolled students count:", enrolledStudents.length);
+                    console.log("Enrolled students:", enrolledStudents);
+                } else {
+                    console.log("No students data in response");
                 }
-            }
-            
-            // Build student list
-            if (enrolledIds.length > 0 && allStudents.length > 0) {
-                enrolledStudents = allStudents.filter(s => enrolledIds.includes(s.id));
-            } else if (enrolledIds.length > 0) {
-                // We have IDs but no student details - show message
-                enrolledStudents = [];
-                hasError = true;
-                errorMsg = "Cannot load student details. Contact admin to check user permissions.";
-            } else {
-                enrolledStudents = [];
+            } catch (err) {
+                console.log("Failed to fetch enrolled students:", err);
+                console.log("Error response:", err.response?.data);
+                console.log("Error status:", err.response?.status);
+                // Fallback to course data if the new endpoint fails
+                let enrolledIds = [];
+                if (selectedCourse) {
+                    enrolledIds = selectedCourse.enrolled_students || selectedCourse.students || selectedCourse.student_ids || [];
+                    console.log("Enrolled IDs from course data:", enrolledIds);
+                }
+                
+                // If no students in course data, try the detail endpoint
+                if (enrolledIds.length === 0) {
+                    try {
+                        console.log("Fetching course details for:", selectedCourseId);
+                        const courseRes = await apiClient.get(`/api/lms/courses/${selectedCourseId}/`);
+                        console.log("Course response:", courseRes.data);
+                        const course = courseRes.data;
+                        enrolledIds = course.enrolled_students || course.students || course.student_ids || [];
+                        console.log("Enrolled IDs from API:", enrolledIds);
+                    } catch (courseErr) {
+                        console.log("Course detail failed:", courseErr.message);
+                    }
+                }
+                
+                // If we have IDs but no student details, we need to fetch student info
+                if (enrolledIds.length > 0) {
+                    try {
+                        // Get all students from institute to filter
+                        const allStudentsRes = await apiClient.get(`/api/users/?role=STUDENT&institute=${user.institute_id}`);
+                        const allStudents = Array.isArray(allStudentsRes.data) ? allStudentsRes.data : (allStudentsRes.data.results || []);
+                        enrolledStudents = allStudents.filter(s => enrolledIds.includes(s.id));
+                    } catch (studentErr) {
+                        console.log("Failed to fetch student details:", studentErr.message);
+                        enrolledStudents = [];
+                        hasError = true;
+                        errorMsg = "Cannot load student details. Contact admin to check user permissions.";
+                    }
+                } else {
+                    enrolledStudents = [];
+                }
             }
             
             console.log("Final enrolled students:", enrolledStudents.length);
@@ -286,8 +288,13 @@ export default function TeacherAttendancePage() {
     };
 
     const getAttendanceStats = () => {
-        const entries = Object.values(attendance);
-        const total = entries.length;
+        // Only count attendance for enrolled students
+        const enrolledStudentIds = students.map(s => s.id);
+        const entries = Object.entries(attendance).filter(([studentId, entry]) => 
+            enrolledStudentIds.includes(parseInt(studentId))
+        ).map(([_, entry]) => entry);
+        
+        const total = students.length;
         const present = entries.filter(a => a.status === 'PRESENT').length;
         const absent = entries.filter(a => a.status === 'ABSENT').length;
         const late = entries.filter(a => a.status === 'LATE').length;

@@ -188,7 +188,15 @@ export default function StudentAssignmentsPage() {
                                     <div key={a.id} className={`asgn-student-card ${getCardClass(a)}`}>
                                         <div className="asgn-card-top">
                                             <div>
-                                                <div className="asgn-card-title">{a.title}</div>
+                                                <div className="asgn-card-title">
+                                                    {a.title}
+                                                    {a.links?.length > 0 && (
+                                                        <span className="asgn-resources-badge">
+                                                            <span className="material-icons-round" style={{ fontSize: 12 }}>link</span>
+                                                            {a.links.length}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <div className="asgn-card-due">
                                                     <span className="material-icons-round" style={{ fontSize: 14 }}>schedule</span>
                                                     &nbsp;Due: {new Date(a.due_date).toLocaleString()}
@@ -216,13 +224,19 @@ export default function StudentAssignmentsPage() {
 
                                         {/* Teacher's links */}
                                         {a.links?.length > 0 && (
-                                            <div className="asgn-links-list">
-                                                {a.links.map((lk, i) => (
-                                                    <a key={i} href={lk.url} target="_blank" rel="noreferrer" className="asgn-link-chip">
-                                                        <span className="material-icons-round" style={{ fontSize: 14 }}>link</span>
-                                                        {lk.label}
-                                                    </a>
-                                                ))}
+                                            <div className="asgn-teacher-links">
+                                                <div className="asgn-teacher-links-label">
+                                                    <span className="material-icons-round" style={{ fontSize: 16, color: '#2196F3' }}>link</span>
+                                                    Teacher Resources ({a.links.length})
+                                                </div>
+                                                <div className="asgn-links-list">
+                                                    {a.links.map((lk, i) => (
+                                                        <a key={i} href={lk.url} target="_blank" rel="noreferrer" className="asgn-link-chip asgn-teacher-link">
+                                                            <span className="material-icons-round" style={{ fontSize: 14 }}>open_in_new</span>
+                                                            {lk.label}
+                                                        </a>
+                                                    ))}
+                                                </div>
                                             </div>
                                         )}
 

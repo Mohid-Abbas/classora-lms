@@ -743,21 +743,157 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             return self.queryset.filter(course__students=user)
         return self.queryset.none()
 
+    def _validate_course_ownership(self, course_id):
+        """Validate that the user has permission to manage attendance for this course."""
+        from rest_framework.exceptions import PermissionDenied, ValidationError
+        from accounts.models import CustomUser
+        
+        user = self.request.user
+        if not course_id:
+            return
+        
+        try:
+            course = Course.objects.get(id=course_id)
+        except Course.DoesNotExist:
+            raise ValidationError({"course": "Course not found."})
+        
+        if user.role == "ADMIN":
+            if course.institute != user.institute:
+                raise PermissionDenied("You can only manage attendance for courses in your institute.")
+        elif user.role == "TEACHER":
+            if user not in course.teachers.all():
+                raise PermissionDenied("You can only manage attendance for courses you teach.")
+        else:
+            raise PermissionDenied("Students cannot create attendance records.")
+
+    def _validate_student_enrollment(self, course, student_ids):
+        """Validate that all students are enrolled in the course."""
+        from rest_framework.exceptions import ValidationError
+        from accounts.models import CustomUser
+        
+        if not student_ids:
+            return
+        
+        # Get enrolled students for the course
+        enrolled_student_ids = set(course.students.values_list('id', flat=True))
+        
+        # Check each student ID
+        invalid_student_ids = []
+        for student_id in student_ids:
+            if student_id not in enrolled_student_ids:
+                invalid_student_ids.append(student_id)
+        
+        if invalid_student_ids:
+            # Try to get student details for error message
+            invalid_students = CustomUser.objects.filter(id__in=invalid_student_ids)
+            student_details = [f"{s.full_name} (ID: {s.id})" for s in invalid_students]
+            
+            raise ValidationError({
+                "students": f"The following students are not enrolled in this course: {', '.join(student_details)}. "
+                          f"Only enrolled students can be marked for attendance."
+            })
+
+    def perform_create(self, serializer):
+        course_id = serializer.validated_data.get('course')
+        if course_id:
+            course_id = course_id.id if hasattr(course_id, 'id') else course_id
+        self._validate_course_ownership(course_id)
+        serializer.save()
+
     @action(detail=True, methods=['post'])
     def mark_attendance(self, request, pk=None):
+        from rest_framework.exceptions import ValidationError
+        from accounts.models import CustomUser
+        
         record = self.get_object()
         entries_data = request.data.get('entries', [])
+        
+        if not entries_data:
+            return Response({'status': 'no entries provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Extract student IDs from entries
+        student_ids = []
+        for entry in entries_data:
+            student_id = entry.get('student') or entry.get('student_id')
+            if student_id:
+                student_ids.append(int(student_id))
+        
+        # Validate that all students are enrolled in the course
+        try:
+            self._validate_student_enrollment(record.course, student_ids)
+        except ValidationError as e:
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create/update attendance entries
+        created_entries = []
         for entry in entries_data:
             # Accept both 'student' and 'student_id' for compatibility
             student_id = entry.get('student') or entry.get('student_id')
             status_val = entry.get('status')
             remarks = entry.get('remarks', '')
-            AttendanceEntry.objects.update_or_create(
+            
+            attendance_entry, created = AttendanceEntry.objects.update_or_create(
                 record=record,
                 student_id=student_id,
                 defaults={'status': status_val, 'remarks': remarks}
             )
-        return Response({'status': 'attendance marked'})
+            created_entries.append({
+                'student_id': student_id,
+                'status': status_val,
+                'remarks': remarks,
+                'created': created
+            })
+        
+        return Response({
+            'status': 'attendance marked',
+            'entries_processed': len(created_entries),
+            'course': record.course.id,
+            'date': record.date
+        })
+
+    @action(detail=False, methods=['get'], url_path='enrolled-students')
+    def get_enrolled_students(self, request):
+        """Get enrolled students for a specific course. Only accessible by teachers/admins of the course."""
+        from accounts.models import CustomUser
+        
+        course_id = request.query_params.get('course')
+        if not course_id:
+            return Response({'detail': 'course parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            course = Course.objects.get(id=course_id)
+        except Course.DoesNotExist:
+            return Response({'detail': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Validate permissions
+        user = request.user
+        if user.role == "ADMIN":
+            if course.institute != user.institute:
+                return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        elif user.role == "TEACHER":
+            if user not in course.teachers.all():
+                return Response({'detail': 'You can only view students for courses you teach'}, status=status.HTTP_403_FORBIDDEN)
+        else:
+            return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get enrolled students
+        enrolled_students = course.students.all()
+        students_data = []
+        
+        for student in enrolled_students:
+            students_data.append({
+                'id': student.id,
+                'full_name': student.full_name,
+                'email': student.email,
+                'role': student.role
+            })
+        
+        return Response({
+            'course_id': course.id,
+            'course_name': course.name,
+            'enrolled_count': len(students_data),
+            'students': students_data
+        })
 
 class AnnouncementViewSet(viewsets.ModelViewSet):
     queryset = Announcement.objects.all().order_by('-created_at')

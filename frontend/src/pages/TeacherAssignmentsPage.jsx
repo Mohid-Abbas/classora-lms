@@ -54,10 +54,26 @@ export default function TeacherAssignmentsPage() {
             .then(res => setAssignments(Array.isArray(res.data) ? res.data : (res.data.results || [])))
             .catch(console.error);
 
-    const fetchSubmissions = (id) =>
-        apiClient.get(`/api/lms/assignment-submissions/?assignment=${id}`)
-            .then(res => setSubmissions(Array.isArray(res.data) ? res.data : (res.data.results || [])))
-            .catch(console.error);
+    const fetchSubmissions = (id) => {
+        // Reset submissions state first
+        setSubmissions([]);
+        return apiClient.get(`/api/lms/assignment-submissions/?assignment=${id}`)
+            .then(res => {
+                const submissions = Array.isArray(res.data) ? res.data : (res.data.results || []);
+                // Filter out any invalid submissions and ensure proper data structure
+                const validSubmissions = submissions.filter(sub => 
+                    sub && 
+                    sub.id && 
+                    (sub.student_id || sub.student) && 
+                    sub.assignment === id
+                );
+                setSubmissions(validSubmissions);
+            })
+            .catch(err => {
+                console.error('Error fetching submissions:', err);
+                setSubmissions([]);
+            });
+    }
 
     const handleInputChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -336,17 +352,22 @@ export default function TeacherAssignmentsPage() {
                                 <>
                                     <div className="asgn-sub-panel-header">
                                         <h3 className="asgn-panel-title">{selectedAsgn?.title}</h3>
-                                        <span className="asgn-badge blue">{submissions.length} Submissions</span>
+                                        <span className="asgn-badge blue">{submissions.length} {submissions.length === 1 ? 'Submission' : 'Submissions'}</span>
                                     </div>
 
-                                    {submissions.length === 0 && <p className="asgn-empty">No submissions yet.</p>}
-                                    {submissions.map(sub => (
+                                    {submissions.length === 0 && (
+                                        <div className="asgn-empty-state">
+                                            <span className="material-icons-round">assignment_turned_in</span>
+                                            <p>No submissions yet for this assignment</p>
+                                        </div>
+                                    )}
+                                    {submissions.length > 0 && submissions.sort((a, b) => (a.student_name || '').localeCompare(b.student_name || '')).map(sub => (
                                         <div key={sub.id} className="asgn-submission-card">
                                             <div className="asgn-sub-header">
                                                 <div>
                                                     <div className="asgn-sub-name">{sub.student_name}</div>
                                                     <div className="asgn-sub-time">
-                                                        {new Date(sub.submitted_at).toLocaleString()}
+                                                        Submitted: {new Date(sub.submitted_at).toLocaleString()}
                                                     </div>
                                                 </div>
                                                 <span className={`asgn-badge ${sub.status === "GRADED" ? "green" : sub.status === "LATE" ? "red" : "blue"}`}>
@@ -356,37 +377,44 @@ export default function TeacherAssignmentsPage() {
 
                                             {/* Student's file */}
                                             {(sub.attachment_url || sub.attachment) && (
-                                                <button className="asgn-download-btn"
-                                                    onClick={() => openFile(sub.attachment_url || sub.attachment)}>
-                                                    <span className="material-icons-round">open_in_new</span>
-                                                    Open Submission File
-                                                </button>
+                                                <div className="asgn-submission-files">
+                                                    <button className="asgn-download-btn"
+                                                        onClick={() => openFile(sub.attachment_url || sub.attachment)}>
+                                                        <span className="material-icons-round">description</span>
+                                                        View Submission File
+                                                    </button>
+                                                </div>
                                             )}
 
                                             {/* Student's links */}
                                             {sub.links?.length > 0 && (
-                                                <div className="asgn-links-list">
-                                                    {sub.links.map((lk, i) => (
-                                                        <a key={i} href={lk.url} target="_blank" rel="noreferrer" className="asgn-link-chip">
-                                                            <span className="material-icons-round" style={{ fontSize: 14 }}>link</span>
-                                                            {lk.label}
-                                                        </a>
-                                                    ))}
+                                                <div className="asgn-submission-links">
+                                                    <div className="asgn-links-label">Submitted Links:</div>
+                                                    <div className="asgn-links-list">
+                                                        {sub.links.map((lk, i) => (
+                                                            <a key={i} href={lk.url} target="_blank" rel="noreferrer" className="asgn-link-chip">
+                                                                <span className="material-icons-round" style={{ fontSize: 14 }}>link</span>
+                                                                {lk.label}
+                                                            </a>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             )}
 
                                             {/* Grade */}
-                                            <div className="asgn-grade-row">
-                                                <input className="asgn-input sm" type="number"
-                                                    placeholder={`/ ${selectedAsgn?.total_marks ?? "?"}`}
-                                                    defaultValue={sub.score ?? ""}
-                                                    onChange={(e) => setGrading(p => ({ ...p, [sub.id]: { ...p[sub.id], score: e.target.value } }))} />
-                                                <input className="asgn-input" placeholder="Feedback to student..."
-                                                    defaultValue={sub.feedback ?? ""}
-                                                    onChange={(e) => setGrading(p => ({ ...p, [sub.id]: { ...p[sub.id], feedback: e.target.value } }))} />
-                                                <button className="asgn-btn primary sm" onClick={() => submitGrade(sub.id)}>
-                                                    Save Grade
-                                                </button>
+                                            <div className="asgn-grade-section">
+                                                <div className="asgn-grade-row">
+                                                    <input className="asgn-input sm" type="number"
+                                                        placeholder={`Score / ${selectedAsgn?.total_marks ?? "?"}`}
+                                                        defaultValue={sub.score ?? ""}
+                                                        onChange={(e) => setGrading(p => ({ ...p, [sub.id]: { ...p[sub.id], score: e.target.value } }))} />
+                                                    <input className="asgn-input" placeholder="Feedback..."
+                                                        defaultValue={sub.feedback ?? ""}
+                                                        onChange={(e) => setGrading(p => ({ ...p, [sub.id]: { ...p[sub.id], feedback: e.target.value } }))} />
+                                                    <button className="asgn-btn primary sm" onClick={() => submitGrade(sub.id)}>
+                                                        Save Grade
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
