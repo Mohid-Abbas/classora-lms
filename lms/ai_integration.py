@@ -64,11 +64,24 @@ class AIAssistant:
         
         try:
             response = self.model.generate_content(prompt)
+            response_text = response.text
+            
+            # Try to extract JSON from markdown code blocks if present
+            if "```json" in response_text:
+                json_start = response_text.find("```json") + 7
+                json_end = response_text.find("```", json_start)
+                response_text = response_text[json_start:json_end].strip()
+            elif "```" in response_text:
+                json_start = response_text.find("```") + 3
+                json_end = response_text.find("```", json_start)
+                response_text = response_text[json_start:json_end].strip()
+            
             # Parse the response as JSON
-            questions = json.loads(response.text)
+            questions = json.loads(response_text)
             return questions
         except Exception as e:
             logger.error(f"Error generating quiz questions: {e}")
+            logger.error(f"Response text: {response.text if 'response' in locals() else 'No response'}")
             return None
     
     def generate_assignment_feedback(self, assignment_text, rubric=None):
@@ -96,10 +109,23 @@ class AIAssistant:
         
         try:
             response = self.model.generate_content(prompt)
-            feedback = json.loads(response.text)
+            response_text = response.text
+            
+            # Try to extract JSON from markdown code blocks if present
+            if "```json" in response_text:
+                json_start = response_text.find("```json") + 7
+                json_end = response_text.find("```", json_start)
+                response_text = response_text[json_start:json_end].strip()
+            elif "```" in response_text:
+                json_start = response_text.find("```") + 3
+                json_end = response_text.find("```", json_start)
+                response_text = response_text[json_start:json_end].strip()
+            
+            feedback = json.loads(response_text)
             return feedback
         except Exception as e:
             logger.error(f"Error generating feedback: {e}")
+            logger.error(f"Response text: {response.text if 'response' in locals() else 'No response'}")
             return None
     
     def generate_study_recommendations(self, student_performance, subjects):
@@ -127,10 +153,23 @@ class AIAssistant:
         
         try:
             response = self.model.generate_content(prompt)
-            recommendations = json.loads(response.text)
+            response_text = response.text
+            
+            # Try to extract JSON from markdown code blocks if present
+            if "```json" in response_text:
+                json_start = response_text.find("```json") + 7
+                json_end = response_text.find("```", json_start)
+                response_text = response_text[json_start:json_end].strip()
+            elif "```" in response_text:
+                json_start = response_text.find("```") + 3
+                json_end = response_text.find("```", json_start)
+                response_text = response_text[json_start:json_end].strip()
+            
+            recommendations = json.loads(response_text)
             return recommendations
         except Exception as e:
             logger.error(f"Error generating recommendations: {e}")
+            logger.error(f"Response text: {response.text if 'response' in locals() else 'No response'}")
             return None
     
     def chat_with_ai(self, message, context=""):
