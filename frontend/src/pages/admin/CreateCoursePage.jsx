@@ -20,9 +20,9 @@ export default function CreateCoursePage() {
         academic_year: "2025-2026",
         section: "A",
         description: "",
-        credits: 3,
+        credits: "",
         duration_weeks: 16,
-        max_students: 50,
+        max_students: "",
         is_published: false,
         assigned_teachers: [],
     });
@@ -72,20 +72,53 @@ export default function CreateCoursePage() {
         setMessage({ type: "", text: "" });
 
         try {
-            await apiClient.post("/api/lms/courses/", {
+            const response = await apiClient.post("/api/lms/courses/", {
                 ...formData,
                 institute: user.institute_id,
-                teachers: formData.assigned_teachers
+                assigned_teachers: formData.assigned_teachers
             });
-            setMessage({ type: "success", text: "Course created successfully!" });
-            setFormData({
-                name: "", code: "", department: "", semester: "Fall", academic_year: "2025-2026", section: "A",
-                description: "", credits: 3, duration_weeks: 16, max_students: 50,
-                is_published: false, assigned_teachers: []
-            });
+            
+            if (response.data.done) {
+                setMessage({ type: "success", text: "Course created successfully!" });
+                setFormData({
+                    name: "", code: "", department: "", semester: "Fall", academic_year: "2025-2026", section: "A",
+                    description: "", credits: "", duration_weeks: 16, max_students: "",
+                    is_published: false, assigned_teachers: []
+                });
+                setTimeout(() => navigate('/courses'), 2000);
+            } else {
+                setMessage({ type: "error", text: "Course creation incomplete. Please check all steps." });
+            }
         } catch (err) {
-            console.error(err);
-            setMessage({ type: "error", text: "Failed to create course. Check your inputs." });
+            console.error("Course creation error:", err);
+            console.error("Error response:", err.response?.data);
+            console.error("Error status:", err.response?.status);
+            
+            if (err.response?.data?.step_errors) {
+                const stepErrors = err.response.data.step_errors;
+                const firstErrorStep = Object.keys(stepErrors)[0];
+                setCurrentStep(parseInt(firstErrorStep));
+                setMessage({ 
+                    type: "error", 
+                    text: `Step ${firstErrorStep}: ${Object.values(stepErrors[firstErrorStep])[0]}` 
+                });
+            } else if (err.response?.data) {
+                // Show actual error from backend
+                const errorData = err.response.data;
+                let errorMessage = "Failed to create course. ";
+                
+                if (errorData.detail) {
+                    errorMessage += errorData.detail;
+                } else if (errorData.non_field_errors) {
+                    errorMessage += errorData.non_field_errors.join(", ");
+                } else {
+                    errorMessage += JSON.stringify(errorData);
+                }
+                
+                setMessage({ type: "error", text: errorMessage });
+            } else {
+                setMessage({ type: "error", text: "Failed to create course. Check your inputs." });
+            }
         } finally {
             setSubmitting(false);
         }
@@ -98,7 +131,34 @@ export default function CreateCoursePage() {
         { num: 4, title: "Settings", icon: "settings" }
     ];
 
-    const nextStep = () => setCurrentStep(s => Math.min(s + 1, totalSteps));
+    const validateCurrentStep = () => {
+        switch(currentStep) {
+            case 1:
+                return formData.name.trim() !== '' && 
+                       formData.code.trim() !== '' && 
+                       formData.department !== '';
+            case 2:
+                return formData.semester !== '' && 
+                       formData.academic_year !== '' && 
+                       formData.section !== '';
+            case 3:
+                return formData.assigned_teachers.length > 0;
+            case 4:
+                const credits = parseInt(formData.credits);
+                const maxStudents = parseInt(formData.max_students);
+                return !isNaN(credits) && credits > 0 && !isNaN(maxStudents) && maxStudents > 0 && typeof formData.is_published === 'boolean';
+            default:
+                return false;
+        }
+    };
+
+    const nextStep = () => {
+        if (validateCurrentStep()) {
+            setCurrentStep(s => Math.min(s + 1, totalSteps));
+        } else {
+            setMessage({ type: "error", text: "Please fill all required fields before proceeding." });
+        }
+    };
     const prevStep = () => setCurrentStep(s => Math.max(s - 1, 1));
 
     const renderStep = () => {
@@ -227,14 +287,35 @@ export default function CreateCoursePage() {
                 return (
                     <div className="step-content">
                         <h3 className="step-title">Course Settings</h3>
+                        <p className="step-subtitle">Configure course credits, capacity, and visibility</p>
                         <div className="form-grid">
                             <div className="form-field">
-                                <label>Credits</label>
-                                <input type="number" name="credits" value={formData.credits} onChange={handleInputChange} />
+                                <label>Credits *</label>
+                                <input 
+                                    type="number" 
+                                    name="credits" 
+                                    value={formData.credits} 
+                                    onChange={handleInputChange}
+                                    min="1"
+                                    max="10"
+                                    placeholder="e.g., 3"
+                                    required 
+                                />
+                                <small>Number of credit hours for this course</small>
                             </div>
                             <div className="form-field">
-                                <label>Max Students</label>
-                                <input type="number" name="max_students" value={formData.max_students} onChange={handleInputChange} />
+                                <label>Maximum Students *</label>
+                                <input 
+                                    type="number" 
+                                    name="max_students" 
+                                    value={formData.max_students} 
+                                    onChange={handleInputChange}
+                                    min="1"
+                                    max="500"
+                                    placeholder="e.g., 50"
+                                    required 
+                                />
+                                <small>Maximum number of students that can enroll</small>
                             </div>
                         </div>
                         <div className="publish-toggle">
@@ -251,6 +332,7 @@ export default function CreateCoursePage() {
                                     {formData.is_published ? "Published (visible to students)" : "Draft (not visible to students)"}
                                 </span>
                             </label>
+                            <small>Choose whether students can see this course immediately</small>
                         </div>
                     </div>
                 );
@@ -315,6 +397,7 @@ export default function CreateCoursePage() {
                                 type="button" 
                                 className="nav-btn next"
                                 onClick={nextStep}
+                                disabled={!validateCurrentStep()}
                             >
                                 Next
                                 <span className="material-icons-round">arrow_forward</span>
@@ -323,17 +406,22 @@ export default function CreateCoursePage() {
                             <button 
                                 type="submit" 
                                 className="nav-btn submit"
-                                disabled={submitting}
+                                disabled={submitting || !validateCurrentStep()}
                             >
                                 {submitting ? (
                                     <>
                                         <span className="material-icons-round spin">sync</span>
                                         Creating...
                                     </>
-                                ) : (
+                                ) : validateCurrentStep() ? (
                                     <>
                                         <span className="material-icons-round">check</span>
                                         Create Course
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="material-icons-round">warning</span>
+                                        Complete Required Fields
                                     </>
                                 )}
                             </button>
