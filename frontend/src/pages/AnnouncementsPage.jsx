@@ -277,9 +277,9 @@ export default function AnnouncementsPage() {
                                         </div>
                                         <p className="ann-bar-text">{ann.content}</p>
                                         
-                                        {ann.image && (
+                                        {ann.image_url && (
                                             <div className="ann-bar-image">
-                                                <img src={`http://localhost:8000${ann.image}`} alt="" />
+                                                <img src={ann.image_url} alt="" />
                                             </div>
                                         )}
 
