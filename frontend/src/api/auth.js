@@ -15,6 +15,16 @@ export async function registerInstitute(data) {
   return response.data;
 }
 
+export async function forgotPasswordRequest(email) {
+  const response = await apiClient.post("/api/forgot-password", { email });
+  return response.data;
+}
+
+export async function resetPasswordRequest(email, code, newPassword) {
+  const response = await apiClient.post("/api/reset-password", { email, code, new_password: newPassword });
+  return response.data;
+}
+
 export function logout() {
   window.localStorage.removeItem("access_token");
   window.localStorage.removeItem("refresh_token");

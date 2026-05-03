@@ -5,6 +5,8 @@ from django.contrib.auth.models import (
     PermissionsMixin,
 )
 from django.utils import timezone
+from django.utils.crypto import get_random_string
+from django.conf import settings
 
 
 class Institute(models.Model):
@@ -96,3 +98,46 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self) -> str:
         return self.email
+
+
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='password_reset_tokens'
+    )
+    verification_code = models.CharField(max_length=6, unique=True, default='000000')
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self) -> str:
+        return f"Password reset code for {self.user.email}"
+    
+    @classmethod
+    def generate_verification_code(cls, user):
+        # Invalidate any existing codes for this user
+        cls.objects.filter(user=user, is_used=False).update(is_used=True)
+        
+        # Generate new 6-digit code
+        import random
+        code = f"{random.randint(100000, 999999)}"
+        return cls.objects.create(user=user, verification_code=code)
+    
+    def is_valid(self):
+        from django.utils import timezone
+        import datetime
+        
+        # Check if code is already used
+        if self.is_used:
+            return False
+        
+        # Check if code has expired (30 minutes)
+        expiry_time = self.created_at + datetime.timedelta(seconds=settings.PASSWORD_RESET_TIMEOUT)
+        return timezone.now() < expiry_time
+    
+    def mark_as_used(self):
+        self.is_used = True
+        self.save()

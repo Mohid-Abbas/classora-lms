@@ -115,7 +115,13 @@ export default function LoginPage() {
                 />
                 Remember me
               </label>
-              <a href="#" className="forgot-password-link">Forgot password?</a>
+              <button 
+  type="button" 
+  className="forgot-password-link"
+  onClick={() => navigate("/forgot-password")}
+>
+  Forgot password?
+</button>
             </div>
 
             <button
