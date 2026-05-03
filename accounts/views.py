@@ -1,12 +1,14 @@
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.core.mail import send_mail
+from django.conf import settings
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import CustomUser, Institute
+from .models import CustomUser, Institute, PasswordResetToken
 from .permissions import IsAdminRole, IsStudentRole, IsTeacherRole
 from .serializers import (
     CreateUserSerializer,
@@ -266,3 +268,120 @@ def student_dashboard(request):
         },
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def forgot_password(request):
+    """
+    Send password reset email to user.
+    Does not reveal whether email exists for security.
+    """
+    email = request.data.get("email", "").strip().lower()
+    
+    if not email:
+        return Response(
+            {"detail": "Email address is required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user = CustomUser.objects.get(email=email)
+
+        # Only send codes for users that are part of an institute (tenant validation)
+        if user.institute is None:
+            # Do not reveal user existence; behave as if email sent
+            return Response(
+                {"detail": "If an account with this email exists, a verification code has been sent."},
+                status=status.HTTP_200_OK
+            )
+
+        # Generate verification code (6-digit) and persist
+        reset_token = PasswordResetToken.generate_verification_code(user)
+
+        # Send email with the numeric code (no link)
+        subject = "Your Classora LMS password reset code"
+        message = f"""
+Hello {user.full_name},
+
+You requested a password reset for your Classora LMS account.
+
+Use the following verification code to reset your password:
+
+{reset_token.verification_code}
+
+This code will expire in 30 minutes.
+
+If you didn't request this password reset, you can safely ignore this email.
+
+Best regards,
+Classora LMS Team
+"""
+
+        try:
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+            print(f"Password reset code email sent successfully to {user.email}")
+        except Exception as e:
+            print(f"Failed to send password reset email: {e}")
+            print(f"Email settings: Host={settings.EMAIL_HOST}, Port={settings.EMAIL_PORT}, User={settings.EMAIL_HOST_USER}")
+            return Response(
+                {"detail": "Failed to send reset email. Please try again later."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    except CustomUser.DoesNotExist:
+        # Don't reveal that email doesn't exist
+        pass
+    
+    # Always return success message to prevent user enumeration
+    return Response(
+        {"detail": "If an account with this email exists, a password reset link has been sent."},
+        status=status.HTTP_200_OK
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def reset_password(request):
+    """
+    Reset password using verification code sent via email.
+    """
+    email = request.data.get("email", "").strip().lower()
+    code = request.data.get("code", "").strip()
+    new_password = request.data.get("new_password", "")
+
+    if not email or not code or not new_password:
+        return Response(
+            {"detail": "Email, code and new password are required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if len(new_password) < 8:
+        return Response(
+            {"detail": "Password must be at least 8 characters long."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        reset_token = PasswordResetToken.objects.get(user__email=email, verification_code=code, is_used=False)
+
+        if not reset_token.is_valid():
+            return Response({"detail": "Invalid or expired verification code."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Reset password
+        user = reset_token.user
+        user.set_password(new_password)
+        user.save()
+
+        # Mark code as used
+        reset_token.mark_as_used()
+
+        return Response({"detail": "Password reset successfully. You can now login with your new password."}, status=status.HTTP_200_OK)
+
+    except PasswordResetToken.DoesNotExist:
+        return Response({"detail": "Invalid verification code."}, status=status.HTTP_400_BAD_REQUEST)

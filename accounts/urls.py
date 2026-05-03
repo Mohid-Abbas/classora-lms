@@ -3,14 +3,16 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
     create_user,
+    delete_user,
+    forgot_password,
     institute_detail,
     institute_register,
     login,
     me,
+    reset_password,
     student_dashboard,
     teacher_dashboard,
     users_list,
-    delete_user,
 )
 
 urlpatterns = [
@@ -20,6 +22,11 @@ urlpatterns = [
     # Email/password login (public).
     path("login", login, name="login"),
     path("login/", login, name="login-slash"),
+    # Password reset (public).
+    path("forgot-password", forgot_password, name="forgot-password"),
+    path("forgot-password/", forgot_password, name="forgot-password-slash"),
+    path("reset-password", reset_password, name="reset-password"),
+    path("reset-password/", reset_password, name="reset-password-slash"),
     # JWT token refresh (public: requires valid refresh token, not access token).
     path("token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
     # Authenticated endpoints.
