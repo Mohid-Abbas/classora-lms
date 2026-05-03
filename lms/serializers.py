@@ -25,6 +25,13 @@ class CourseSerializer(serializers.ModelSerializer):
     )
     enrolled_students = serializers.SerializerMethodField()
     
+    def validate_duration_weeks(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Duration must be at least 1 week.")
+        if value > 52:
+            raise serializers.ValidationError("Duration cannot exceed 52 weeks.")
+        return value
+    
     class Meta:
         model = Course
         fields = "__all__"
@@ -77,6 +84,13 @@ class QuizSerializer(serializers.ModelSerializer):
     is_active = serializers.SerializerMethodField()
     course_name = serializers.ReadOnlyField(source="course.name")
     course_code = serializers.ReadOnlyField(source="course.code")
+    
+    def validate_total_time_minutes(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Total time must be at least 1 minute.")
+        if value > 300:
+            raise serializers.ValidationError("Total time cannot exceed 300 minutes.")
+        return value
 
     class Meta:
         model = Quiz
@@ -86,6 +100,12 @@ class QuizSerializer(serializers.ModelSerializer):
         return obj.is_active()
 
 class QuestionSerializer(serializers.ModelSerializer):
+    
+    def validate_points(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Points must be at least 1.")
+        return value
+    
     class Meta:
         model = Question
         fields = "__all__"

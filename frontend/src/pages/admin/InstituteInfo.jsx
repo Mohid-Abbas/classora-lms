@@ -4,15 +4,27 @@ import { apiClient } from "../../api/client";
 export default function InstituteInfo({ instituteId }) {
   const [institute, setInstitute] = useState(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!instituteId) return;
+    if (!instituteId) {
+      setLoading(false);
+      setError("Your admin account is not linked to an institute.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
     apiClient
       .get(`/api/institute/${instituteId}/`)
-      .then((res) => setInstitute(res.data))
+      .then((res) => {
+        setInstitute(res.data);
+        setLoading(false);
+      })
       .catch((err) => {
         console.error(err);
         setError("Failed to load institute information.");
+        setLoading(false);
       });
   }, [instituteId]);
 
@@ -22,8 +34,12 @@ export default function InstituteInfo({ instituteId }) {
     );
   }
 
-  if (!institute) {
+  if (loading) {
     return <div className="dashboard-card">Loading institute info...</div>;
+  }
+
+  if (!institute) {
+    return <div className="dashboard-card" style={{ color: "#d32f2f" }}>No institute information available.</div>;
   }
 
   return (
