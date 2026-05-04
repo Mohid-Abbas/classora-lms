@@ -516,10 +516,10 @@ def save_ai_quiz_to_course(request):
         # Create the quiz
         quiz = Quiz.objects.create(
             title=quiz_title,
-            description=quiz_description,
+            instructions=quiz_description,
             course=course,
-            time_limit=time_limit,
-            created_by=request.user
+            total_time_minutes=time_limit,
+            is_published=True
         )
         
         # Create questions
@@ -530,15 +530,27 @@ def save_ai_quiz_to_course(request):
                 text=q_data.get('question', ''),
                 question_type='MCQ',
                 options=q_data.get('options', []),
-                correct_answer=q_data.get('correct_answer', 0),
-                explanation=q_data.get('explanation', ''),
-                marks=1
+                correct_answer=str(q_data.get('correct_answer', 0)),
+                points=1
             )
             created_questions.append({
                 'id': question.id,
                 'text': question.text,
                 'correct_answer': question.correct_answer
             })
+            
+        # Notify students
+        from lms.models import Notification
+        students = course.students.all()
+        if students.exists():
+            notifications = [
+                Notification(
+                    user=s,
+                    title="New AI Quiz Available",
+                    message=f"Quiz '{quiz.title}' is now available for {course.name}."
+                ) for s in students
+            ]
+            Notification.objects.bulk_create(notifications)
         
         return Response({
             'success': True,
