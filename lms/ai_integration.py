@@ -42,6 +42,17 @@ if openrouter_available:
 else:
     logger.info("ℹ️ OPENROUTER_API_KEY not set in environment")
 
+# Groq configuration
+groq_key = getattr(settings, 'GROQ_API_KEY', '')
+groq_available = bool(groq_key and groq_key.strip())
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+if groq_available:
+    logger.info("✅ Groq API configured successfully")
+else:
+    logger.info("ℹ️ GROQ_API_KEY not set in environment")
+
+
 class AIAssistant:
     """AI Assistant supporting multiple AI providers"""
     
@@ -51,9 +62,16 @@ class AIAssistant:
         self.available = False
         
         # Log configuration state
-        logger.info(f"🔧 AI Configuration: Gemini={gemini_available}, OpenRouter={openrouter_available}")
+        logger.info(f"🔧 AI Configuration: Groq={groq_available}, Gemini={gemini_available}, OpenRouter={openrouter_available}")
         
-        # Try Gemini first
+        # Try Groq first
+        if groq_available:
+            self.provider = 'groq'
+            self.available = True
+            logger.info("✅ AI Assistant initialized with Groq")
+            return
+
+        # Try Gemini second
         if gemini_available:
             try:
                 self.model = genai.GenerativeModel('gemini-2.0-flash')
@@ -77,7 +95,7 @@ class AIAssistant:
         logger.error("   - GEMINI_API_KEY (from https://aistudio.google.com/)")
         logger.error("   - OPENROUTER_API_KEY (from https://openrouter.ai/)")
     
-    def _call_openrouter(self, prompt, model="anthropic/claude-3.5-sonnet"):
+    def _call_openrouter(self, prompt, model="google/gemma-3-27b-it:free"):
         """Call OpenRouter API"""
         try:
             headers = {
@@ -106,7 +124,7 @@ class AIAssistant:
             logger.error(f"OpenRouter call failed: {e}")
             return None
     
-    def _call_openrouter_chat(self, messages, model="anthropic/claude-3.5-sonnet"):
+    def _call_openrouter_chat(self, messages, model="google/gemma-3-27b-it:free"):
         """Call OpenRouter API with chat history"""
         try:
             headers = {
@@ -134,6 +152,61 @@ class AIAssistant:
         except Exception as e:
             logger.error(f"OpenRouter chat failed: {e}")
             return None
+
+    def _call_groq(self, prompt, model="llama-3.3-70b-versatile"):
+        """Call Groq API"""
+        try:
+            headers = {
+                "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            }
+            
+            data = {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7
+            }
+            
+            response = requests.post(GROQ_URL, headers=headers, json=data, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result['choices'][0]['message']['content']
+            else:
+                logger.error(f"Groq error: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Groq call failed: {e}")
+            return None
+    
+    def _call_groq_chat(self, messages, model="llama-3.3-70b-versatile"):
+        """Call Groq API with chat history"""
+        try:
+            headers = {
+                "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            }
+            
+            data = {
+                "model": model,
+                "messages": messages,
+                "temperature": 0.7
+            }
+            
+            response = requests.post(GROQ_URL, headers=headers, json=data, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result['choices'][0]['message']['content']
+            else:
+                logger.error(f"Groq error: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Groq chat failed: {e}")
+            return None
+
     
     def generate_quiz_questions(self, topic, num_questions=5, difficulty='medium'):
         """Generate quiz questions using available AI provider"""
@@ -164,7 +237,11 @@ class AIAssistant:
         
         try:
             # Use appropriate provider
-            if self.provider == 'gemini':
+            if self.provider == 'groq':
+                response_text = self._call_groq(prompt)
+                if not response_text:
+                    return None
+            elif self.provider == 'gemini':
                 response = self.model.generate_content(prompt)
                 response_text = response.text
             elif self.provider == 'openrouter':
@@ -225,7 +302,11 @@ class AIAssistant:
         
         try:
             # Use appropriate provider
-            if self.provider == 'gemini':
+            if self.provider == 'groq':
+                response_text = self._call_groq(prompt)
+                if not response_text:
+                    return None
+            elif self.provider == 'gemini':
                 response = self.model.generate_content(prompt)
                 response_text = response.text
             elif self.provider == 'openrouter':
@@ -277,7 +358,11 @@ class AIAssistant:
         
         try:
             # Use appropriate provider
-            if self.provider == 'gemini':
+            if self.provider == 'groq':
+                response_text = self._call_groq(prompt)
+                if not response_text:
+                    return None
+            elif self.provider == 'gemini':
                 response = self.model.generate_content(prompt)
                 response_text = response.text
             elif self.provider == 'openrouter':
@@ -318,7 +403,15 @@ class AIAssistant:
         
         try:
             # Use appropriate provider
-            if self.provider == 'gemini':
+            if self.provider == 'groq':
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                ]
+                if context:
+                    messages.append({"role": "system", "content": f"Context: {context}"})
+                messages.append({"role": "user", "content": message})
+                return self._call_groq_chat(messages)
+            elif self.provider == 'gemini':
                 full_prompt = f"{system_prompt}\n\nContext: {context}\n\nUser: {message}"
                 response = self.model.generate_content(full_prompt)
                 return response.text
@@ -590,11 +683,20 @@ def ai_chat(request):
 def ai_status(request):
     """Check AI service status - Public endpoint"""
     provider_name = ai_assistant.provider if ai_assistant.available else None
-    model_name = 'gemini-2.0-flash' if provider_name == 'gemini' else 'anthropic/claude-3.5-sonnet' if provider_name == 'openrouter' else None
     
+    if provider_name == 'groq':
+        model_name = 'llama-3.3-70b-versatile'
+    elif provider_name == 'gemini':
+        model_name = 'gemini-2.0-flash'
+    elif provider_name == 'openrouter':
+        model_name = 'google/gemma-3-27b-it:free'
+    else:
+        model_name = None
+        
     # Check actual key status (without exposing keys)
     gemini_key_set = bool(getattr(settings, 'GEMINI_API_KEY', '').strip())
     openrouter_key_set = bool(getattr(settings, 'OPENROUTER_API_KEY', '').strip())
+    groq_key_set = bool(getattr(settings, 'GROQ_API_KEY', '').strip())
     
     response_data = {
         'available': ai_assistant.available,
@@ -602,8 +704,10 @@ def ai_status(request):
         'model': model_name,
         'gemini_key_set': gemini_key_set,
         'openrouter_key_set': openrouter_key_set,
+        'groq_key_set': groq_key_set,
         'gemini_configured': gemini_available,
-        'openrouter_configured': openrouter_available
+        'openrouter_configured': openrouter_available,
+        'groq_configured': groq_available
     }
     
     # Add helpful message if not available
